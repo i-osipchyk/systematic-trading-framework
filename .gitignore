@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Price data (large, re-fetchable from cTrader)
+data/futures/adjusted_prices_csv/*.csv
+data/futures/multiple_prices_csv/*.csv
+
+# Calibration run outputs (keep directory marker, ignore all run subdirs)
+systems/*/
+systems/latest
