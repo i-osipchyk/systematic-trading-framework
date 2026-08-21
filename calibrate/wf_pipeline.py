@@ -44,8 +44,6 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 import src.backtest.config as config_mod
-import src.rules.ewmac as ewmac_mod
-import src.rules.mr as mr_mod
 
 from src.backtest.config import (
     load_instrument_configs,
@@ -61,6 +59,7 @@ from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import split_series
 from src.rules.combine import combined_forecast
+from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 STEP_LINE = "─" * 60
@@ -145,8 +144,7 @@ def _compute_fold_dates(
 
 def _compute_vol_target_auto(
     instruments: list[str],
-    ewmac_scalars: dict,
-    mr_scalars: dict,
+    family_scalars: dict,
     rule_weights: dict,
     fdm_data: dict,
     instrument_weights_raw: dict[str, float],
@@ -187,8 +185,7 @@ def _compute_vol_target_auto(
 
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=fdm,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
@@ -283,8 +280,7 @@ def _run_fold(
     with ctx():
         step01.main(state_dir=fold_dir, split_date=is_end)
     scalars_data = st.load("01_scalars.yaml", state_dir=fold_dir)
-    ewmac_scalars = st.parse_ewmac_scalars(scalars_data.get("ewmac", {}))
-    mr_scalars = st.parse_mr_scalars(scalars_data.get("mr", {}))
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     print(" done")
 
     # Step 03: FDM
@@ -299,7 +295,7 @@ def _run_fold(
     # Vol target: Kelly geomean, 10% floor when IS SR ≤ 0
     print(f"    [05] Vol target...", end="", flush=True)
     is_sharpe, vol_target = _compute_vol_target_auto(
-        instruments, ewmac_scalars, mr_scalars, rule_weights, fdm_data,
+        instruments, family_scalars, rule_weights, fdm_data,
         instrument_weights_raw, is_end, capital,
     )
     floor_msg = " [floor]" if is_sharpe <= 0 else ""
@@ -318,18 +314,14 @@ def _run_fold(
     calibrated_idm = float(idm_data["idm"])
     print(f" {calibrated_idm:.3f}")
 
-    # Patch instrument weights and scalars for run_portfolio
+    # Patch instrument weights for run_portfolio
     cfgs = load_instrument_configs()
     patched_cfgs = {
         code: replace(cfg, weight=instrument_weights_raw.get(code, cfg.weight))
         for code, cfg in cfgs.items()
     }
     original_load = config_mod.load_instrument_configs
-    orig_ewmac = ewmac_mod.SCALARS
-    orig_mr = mr_mod.SCALARS
     config_mod.load_instrument_configs = lambda: patched_cfgs
-    ewmac_mod.SCALARS = ewmac_scalars
-    mr_mod.SCALARS = mr_scalars
 
     try:
         print(f"    [08] Backtest...", end="", flush=True)
@@ -341,14 +333,11 @@ def _run_fold(
                 vol_target=vol_target,
                 calibrated_fdms=calibrated_fdms,
                 calibrated_idm=calibrated_idm,
-                ewmac_scalars=ewmac_scalars,
-                mr_scalars=mr_scalars,
+                family_scalars=family_scalars,
                 rule_weights=rule_weights,
             )
     finally:
         config_mod.load_instrument_configs = original_load
-        ewmac_mod.SCALARS = orig_ewmac
-        mr_mod.SCALARS = orig_mr
 
     # Slice to this fold's OOS window only
     oos_pnl = result.oos_pnl[result.oos_pnl.index < oos_end]

@@ -14,15 +14,13 @@ from pathlib import Path
 
 import numpy as np
 
-# Ensure project root is on the path when running standalone
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.backtest.config import load_instrument_configs, load_rules_config, traded_instruments
 from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
-from src.rules.ewmac import ewmac
-from src.rules.mr import mean_reversion
+from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 
@@ -30,69 +28,65 @@ def main(state_dir=None, split_date=None) -> None:
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
     rules = load_rules_config()
-    ewmac_pairs: list[tuple[int, int]] = [tuple(p) for p in rules.get("ewmac", {}).get("pairs", [])]
-    mr_spans: list[int] = rules.get("mr", {}).get("spans", [])
 
     if split_date is None:
         print("  Computing IS split date...")
         split_date = compute_split_date(instruments)
     print(f"  Split date: {split_date.date()}\n")
 
-    # ── Pool raw MAF across instruments for each rule ─────────────────────────
-    ewmac_maf: dict[tuple[int, int], list[float]] = {p: [] for p in ewmac_pairs}
-    mr_maf: dict[int, list[float]] = {s: [] for s in mr_spans}
-
-    print("  Loading IS data and computing raw mean absolute forecasts...")
-    for code in instruments:
-        try:
-            prices = load_adjusted_prices(code)
-        except FileNotFoundError:
-            print(f"  WARNING: no data for {code}, skipping.")
-            continue
-
-        is_prices, _ = split_series(prices, split_date)
-        vol = daily_vol(is_prices)
-
-        for fast, slow in ewmac_pairs:
-            raw = ewmac(is_prices, fast, slow, vol, scalar=1.0)
-            maf = float(np.nanmean(np.abs(raw)))
-            ewmac_maf[(fast, slow)].append(maf)
-
-        for span in mr_spans:
-            raw = mean_reversion(is_prices, span, vol, scalar=1.0)
-            maf = float(np.nanmean(np.abs(raw)))
-            mr_maf[span].append(maf)
-
-    # ── Compute scalars ───────────────────────────────────────────────────────
-    ewmac_scalars: dict[str, float] = {}
-    mr_scalars: dict[str, float] = {}
-
+    scalars_out: dict[str, dict] = {}
     rows: list[tuple[str, float, float]] = []
 
-    for fast, slow in ewmac_pairs:
-        pooled = float(np.nanmean(ewmac_maf[(fast, slow)]))
-        scalar = round(10.0 / pooled, 4)
-        key = f"{fast}_{slow}"
-        ewmac_scalars[key] = scalar
-        rows.append((f"EWMAC_{fast}_{slow}", pooled, scalar))
+    print("  Loading IS data and computing raw mean absolute forecasts...")
 
-    for span in mr_spans:
-        pooled = float(np.nanmean(mr_maf[span]))
-        scalar = round(10.0 / pooled, 4)
-        key = str(span)
-        mr_scalars[key] = scalar
-        rows.append((f"MR_{span}", pooled, scalar))
+    for block_name, block_cfg in rules.items():
+        handler = REGISTRY.get(block_name)
+        if handler is None:
+            print(f"  WARNING: unknown rule block '{block_name}', skipping.")
+            continue
 
-    # ── Save state ────────────────────────────────────────────────────────────
-    st.save("01_scalars.yaml", {"ewmac": ewmac_scalars, "mr": mr_scalars}, state_dir=state_dir)
+        variants = handler.variants_from_cfg(block_cfg)
+        if not variants:
+            continue
 
-    # ── Print results ─────────────────────────────────────────────────────────
+        maf_by_variant: dict = {v: [] for v in variants}
+
+        for code in instruments:
+            try:
+                prices = load_adjusted_prices(code)
+            except FileNotFoundError:
+                print(f"  WARNING: no data for {code}, skipping.")
+                continue
+
+            is_prices, _ = split_series(prices, split_date)
+            vol = daily_vol(is_prices)
+
+            for variant in variants:
+                raw = handler.compute_one_raw(is_prices, variant, vol)
+                maf = float(np.nanmean(np.abs(raw)))
+                maf_by_variant[variant].append(maf)
+
+        block_scalars_native: dict = {}
+        for variant in variants:
+            mafs = [m for m in maf_by_variant[variant] if not np.isnan(m)]
+            if not mafs:
+                continue
+            pooled = float(np.nanmean(mafs))
+            scalar = round(10.0 / pooled, 4)
+            block_scalars_native[variant] = scalar
+            rows.append((handler.rule_name(variant), pooled, scalar))
+
+        scalars_out[block_name] = handler.dump_scalars(block_scalars_native)
+
+    st.save("01_scalars.yaml", scalars_out, state_dir=state_dir)
+
     print()
-    col_w = max(len(r[0]) for r in rows) + 2
-    print(f"  {'Rule':<{col_w}} {'Raw MAF':>9}  {'Scalar':>8}")
-    print(f"  {'─' * (col_w + 22)}")
-    for rule, maf, scalar in rows:
-        print(f"  {rule:<{col_w}} {maf:>9.3f}  {scalar:>8.2f}")
+    if rows:
+        col_w = max(len(r[0]) for r in rows) + 2
+        print(f"  {'Rule':<{col_w}} {'Raw MAF':>9}  {'Scalar':>8}")
+        print(f"  {'─' * (col_w + 22)}")
+        for rule, maf, scalar in rows:
+            print(f"  {rule:<{col_w}} {maf:>9.3f}  {scalar:>8.2f}")
 
     print(f"\n  Saved → {st.path('01_scalars.yaml', state_dir=state_dir)}")
 

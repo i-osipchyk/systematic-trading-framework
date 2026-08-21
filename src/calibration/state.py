@@ -48,3 +48,13 @@ def dump_ewmac_scalars(scalars: dict[tuple[int, int], float]) -> dict:
 
 def parse_mr_scalars(raw: dict) -> dict[int, float]:
     return {int(k): float(v) for k, v in raw.items()}
+
+
+def parse_family_scalars(scalars_data: dict, registry: dict) -> dict[str, dict]:
+    """Parse full scalars_data YAML dict into native family_scalars dict."""
+    result = {}
+    for block_name, raw in scalars_data.items():
+        handler = registry.get(block_name)
+        if handler and raw:
+            result[block_name] = handler.parse_scalars(raw)
+    return result

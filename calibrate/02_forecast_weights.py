@@ -27,20 +27,18 @@ SUM_TOL = 0.005
 
 def _build_family_to_rules(scalars_data: dict, rules_cfg: dict) -> dict[str, list[str]]:
     """Build {family_name: [rule_name, ...]} from scalars and rules config."""
+    from src.rules.registry import REGISTRY
+
     family_to_rules: dict[str, list[str]] = {}
-
-    ewmac_keys = list(scalars_data.get("ewmac", {}).keys())
-    ewmac_family = rules_cfg.get("ewmac", {}).get("family", "ema_crossover")
-    rule_names_ewmac = [f"EWMAC_{k}" for k in ewmac_keys]
-    if rule_names_ewmac:
-        family_to_rules[ewmac_family] = rule_names_ewmac
-
-    mr_keys = list(scalars_data.get("mr", {}).keys())
-    mr_family = rules_cfg.get("mr", {}).get("family", "mean_reversion")
-    rule_names_mr = [f"MR_{k}" for k in mr_keys]
-    if rule_names_mr:
-        family_to_rules[mr_family] = rule_names_mr
-
+    for block_name, raw_scalars in scalars_data.items():
+        handler = REGISTRY.get(block_name)
+        if handler is None or not raw_scalars:
+            continue
+        family_display = rules_cfg.get(block_name, {}).get("family", block_name)
+        scalars = handler.parse_scalars(raw_scalars)
+        rule_names = [handler.rule_name(v) for v in scalars]
+        if rule_names:
+            family_to_rules[family_display] = rule_names
     return family_to_rules
 
 

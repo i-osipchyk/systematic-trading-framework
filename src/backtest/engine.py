@@ -77,8 +77,7 @@ def run_instrument(
     idm: float = 1.0,
     fdm: float | None = None,
     usdjpy_prices: pd.Series | None = None,
-    ewmac_scalars: dict[tuple[int, int], float] | None = None,
-    mr_scalars: dict[int, float] | None = None,
+    family_scalars: dict[str, dict] | None = None,
     rule_weights: dict[str, float] | None = None,
 ) -> InstrumentResult:
     """Run a single-instrument backtest over the full price history.
@@ -87,10 +86,10 @@ def run_instrument(
     Positions and P&L span the full series; IS/OOS slicing is the caller's job.
 
     Args:
-        ewmac_scalars: Override scalars for EWMAC rules, passed to combined_forecast().
-        mr_scalars:    Override scalars for MR rules, passed to combined_forecast().
-        rule_weights:  Per-rule combination weights, passed to combined_forecast()
-                       and calibrate_fdm().
+        family_scalars: Override scalars for all rule families, passed to
+                        combined_forecast().
+        rule_weights:   Per-rule combination weights, passed to combined_forecast()
+                        and calibrate_fdm().
     """
     is_prices, _ = split_series(prices, split_date)
 
@@ -99,20 +98,17 @@ def run_instrument(
         vol_is = daily_vol(is_prices)
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=1.0,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
-        rule_cols = [c for c in fc_is.columns
-                     if c not in ("trend_combined", "mr_combined", "combined")]
+        rule_cols = [c for c in fc_is.columns if c != "combined"]
         fdm = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
 
     # ── Full-series computation ───────────────────────────────────────────────
     vol = daily_vol(prices)
     fc = combined_forecast(
         prices, vol, fdm=fdm,
-        ewmac_scalars=ewmac_scalars,
-        mr_scalars=mr_scalars,
+        family_scalars=family_scalars,
         rule_weights=rule_weights,
     )
     fx = _fx_rate_to_usd(cfg.currency, eurusd_prices, eurgbp_prices, prices.index,
@@ -154,8 +150,7 @@ def run_portfolio(
     vol_target: float = 0.20,
     calibrated_fdms: dict[str, float] | None = None,
     calibrated_idm: float | None = None,
-    ewmac_scalars: dict[tuple[int, int], float] | None = None,
-    mr_scalars: dict[int, float] | None = None,
+    family_scalars: dict[str, dict] | None = None,
     rule_weights: dict[str, float] | None = None,
 ) -> BacktestResult:
     """Two-pass portfolio backtest.
@@ -171,8 +166,8 @@ def run_portfolio(
         calibrated_idm:  If provided, skip IDM computation and use this value.
                          If both calibrated_fdms and calibrated_idm are given,
                          pass 1 is skipped entirely.
-        ewmac_scalars:   Override scalars for EWMAC rules, passed to run_instrument().
-        mr_scalars:      Override scalars for MR rules, passed to run_instrument().
+        family_scalars:  Override scalars for all rule families, passed to
+                         run_instrument().
         rule_weights:    Per-rule combination weights, passed to run_instrument().
     """
     if split_date is None:
@@ -227,8 +222,7 @@ def run_portfolio(
                 idm=1.0,
                 fdm=pre_fdm,
                 usdjpy_prices=usdjpy_prices,
-                ewmac_scalars=ewmac_scalars,
-                mr_scalars=mr_scalars,
+                family_scalars=family_scalars,
                 rule_weights=rule_weights,
             )
         print()
@@ -268,8 +262,7 @@ def run_portfolio(
             idm=idm,
             fdm=fdms.get(code),
             usdjpy_prices=usdjpy_prices,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
     print("\n")

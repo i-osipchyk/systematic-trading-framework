@@ -28,6 +28,7 @@ from src.backtest.sizing import compute_positions
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
 from src.rules.combine import combined_forecast
+from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 FILENAME = "05_vol_target.yaml"
@@ -36,8 +37,7 @@ FIXED_VOL_FOR_MEASUREMENT = 0.20
 
 def _run_is_portfolio(
     instruments: list[str],
-    ewmac_scalars: dict,
-    mr_scalars: dict,
+    family_scalars: dict,
     rule_weights: dict,
     fdm_data: dict,
     capital: float = 10_000.0,
@@ -74,8 +74,7 @@ def _run_is_portfolio(
 
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=fdm,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
@@ -106,8 +105,7 @@ def main(state_dir=None) -> None:
     weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
     fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
 
-    ewmac_scalars = st.parse_ewmac_scalars(scalars_data.get("ewmac", {}))
-    mr_scalars = st.parse_mr_scalars(scalars_data.get("mr", {}))
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
@@ -118,17 +116,15 @@ def main(state_dir=None) -> None:
     print("  Running IS portfolio backtest (vol target fixed at"
           f" {FIXED_VOL_FOR_MEASUREMENT:.0%} for SR measurement)...")
     is_sharpe, _ = _run_is_portfolio(
-        instruments, ewmac_scalars, mr_scalars, rule_weights, fdm_data
+        instruments, family_scalars, rule_weights, fdm_data
     )
 
     # Kelly analysis
     realistic_sr = is_sharpe * 0.75
     full_kelly = realistic_sr          # as a vol fraction
     half_kelly = realistic_sr / 2.0
-    # Geometric mean of full and half Kelly, clamped
     suggested = float(np.clip(np.sqrt(full_kelly * half_kelly), 0.05, 0.40))
 
-    # Print Kelly table
     print()
     print(f"  IS Sharpe (after costs)     : {is_sharpe:.2f}")
     print(f"  Realistic future SR (×0.75) : {realistic_sr:.2f}")

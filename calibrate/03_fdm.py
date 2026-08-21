@@ -19,16 +19,15 @@ from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
 from src.rules.combine import calibrate_fdm, combined_forecast
+from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 
 def main(state_dir=None, split_date=None) -> None:
-    # Load state
     scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
     weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
 
-    ewmac_scalars = st.parse_ewmac_scalars(scalars_data.get("ewmac", {}))
-    mr_scalars = st.parse_mr_scalars(scalars_data.get("mr", {}))
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
@@ -54,20 +53,16 @@ def main(state_dir=None, split_date=None) -> None:
 
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=1.0,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
-        rule_cols = [c for c in fc_is.columns
-                     if c not in ("trend_combined", "mr_combined", "combined")]
+        rule_cols = [c for c in fc_is.columns if c != "combined"]
 
         fdm = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
         fdms[code] = fdm
 
-    # Save state
     st.save("03_fdm.yaml", {code: round(fdm, 4) for code, fdm in fdms.items()}, state_dir=state_dir)
 
-    # Print table
     print(f"  {'Instrument':<14} {'FDM':>6}")
     print(f"  {'─' * 22}")
     for code, fdm in fdms.items():

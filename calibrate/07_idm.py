@@ -26,6 +26,7 @@ from src.backtest.sizing import compute_positions
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
 from src.rules.combine import combined_forecast
+from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 
@@ -37,8 +38,7 @@ def main(state_dir=None, split_date=None) -> None:
     vol_target_data = st.load("05_vol_target.yaml", state_dir=state_dir)
     inst_weights_data = st.load("06_instrument_weights.yaml", state_dir=state_dir)
 
-    ewmac_scalars = st.parse_ewmac_scalars(scalars_data.get("ewmac", {}))
-    mr_scalars = st.parse_mr_scalars(scalars_data.get("mr", {}))
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
@@ -87,8 +87,7 @@ def main(state_dir=None, split_date=None) -> None:
 
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=fdm,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,

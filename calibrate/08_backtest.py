@@ -1,9 +1,8 @@
 """
 Step 08: Full IS+OOS backtest with all calibrated parameters.
 
-Loads all state files, patches module-level SCALARS, applies calibrated
-instrument weights, then runs the two-pass portfolio backtest skipping
-pass 1 (FDMs and IDM already known).
+Loads all state files, applies calibrated instrument weights, then runs the
+two-pass portfolio backtest skipping pass 1 (FDMs and IDM already known).
 
 Usage:
     uv run python calibrate/08_backtest.py
@@ -16,17 +15,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-import src.rules.ewmac as ewmac_mod
-import src.rules.mr as mr_mod
-
 from src.calibration import state as st
 from src.backtest.config import load_instrument_configs, traded_instruments
 from src.backtest.engine import INSTRUMENTS, run_portfolio
 from src.backtest.metrics import annual_turnover, performance_report
+from src.rules.registry import REGISTRY
 
 
 def main(state_dir=None) -> None:
-    # Load all state
     scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
     weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
     fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
@@ -34,8 +30,7 @@ def main(state_dir=None) -> None:
     inst_weights_data = st.load("06_instrument_weights.yaml", state_dir=state_dir)
     idm_data = st.load("07_idm.yaml", state_dir=state_dir)
 
-    ewmac_scalars = st.parse_ewmac_scalars(scalars_data.get("ewmac", {}))
-    mr_scalars = st.parse_mr_scalars(scalars_data.get("mr", {}))
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
@@ -51,10 +46,6 @@ def main(state_dir=None) -> None:
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
 
-    # Patch module-level SCALARS so any code using the defaults gets calibrated values
-    ewmac_mod.SCALARS = ewmac_scalars  # type: ignore[assignment]
-    mr_mod.SCALARS = mr_scalars        # type: ignore[assignment]
-
     # Apply calibrated instrument weights to configs
     patched_cfgs: dict = {}
     for code, cfg in cfgs.items():
@@ -62,7 +53,6 @@ def main(state_dir=None) -> None:
         patched_cfgs[code] = replace(cfg, weight=w)
 
     # Monkey-patch load_instrument_configs to return our patched configs
-    import src.backtest.engine as engine_mod
     import src.backtest.config as config_mod
     original_load = config_mod.load_instrument_configs
     config_mod.load_instrument_configs = lambda: patched_cfgs  # type: ignore[assignment]
@@ -81,12 +71,10 @@ def main(state_dir=None) -> None:
             vol_target=vol_target,
             calibrated_fdms=calibrated_fdms,
             calibrated_idm=calibrated_idm,
-            ewmac_scalars=ewmac_scalars,
-            mr_scalars=mr_scalars,
+            family_scalars=family_scalars,
             rule_weights=rule_weights,
         )
     finally:
-        # Restore original function
         config_mod.load_instrument_configs = original_load
 
     # ── Header ────────────────────────────────────────────────────────────────
