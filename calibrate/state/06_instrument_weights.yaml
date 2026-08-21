@@ -1,0 +1,24 @@
+# Instrument portfolio weights
+# ─────────────────────────────────────────────────────────────────
+# Edit the weight for each instrument below, then save and press
+# Enter in the terminal to continue.
+#
+# Constraints:
+#   - All weights must be >= 0
+#   - Weights must sum to 1.0 (tolerance ±0.005)
+#
+# Suggested: group by asset class, e.g.
+#   Crypto (BTC, ETH)         → 25% total (0.125 each)
+#   Equity (US500, US30, GER40)→ 35% total (~0.117 each)
+#   Commodity (XAU, USOIL)    → 25% total (0.125 each)
+#   FX (USDJPY)               → 15%
+#
+instrument_weights:
+  BTC: 0.125
+  ETH: 0.125
+  US500: 0.1167
+  US30: 0.1167
+  GER40: 0.1167
+  XAU: 0.125
+  USOIL: 0.125
+  USDJPY: 0.15
