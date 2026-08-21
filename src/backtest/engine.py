@@ -100,6 +100,7 @@ def run_instrument(
             is_prices, vol_is, fdm=1.0,
             family_scalars=family_scalars,
             rule_weights=rule_weights,
+            instrument_code=code,
         )
         rule_cols = [c for c in fc_is.columns if c != "combined"]
         fdm = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
@@ -110,6 +111,7 @@ def run_instrument(
         prices, vol, fdm=fdm,
         family_scalars=family_scalars,
         rule_weights=rule_weights,
+        instrument_code=code,
     )
     fx = _fx_rate_to_usd(cfg.currency, eurusd_prices, eurgbp_prices, prices.index,
                          usdjpy_prices=usdjpy_prices)

@@ -76,6 +76,7 @@ def _run_is_portfolio(
             is_prices, vol_is, fdm=fdm,
             family_scalars=family_scalars,
             rule_weights=rule_weights,
+            instrument_code=code,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
                              usdjpy_prices=usdjpy)

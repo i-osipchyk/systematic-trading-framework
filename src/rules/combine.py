@@ -23,6 +23,7 @@ def combined_forecast(
     fdm: float = 1.0,
     family_scalars: dict[str, dict] | None = None,
     rule_weights: dict[str, float] | None = None,
+    instrument_code: str | None = None,
 ) -> pd.DataFrame:
     """Compute the combined forecast for a single instrument.
 
@@ -58,7 +59,7 @@ def combined_forecast(
         handler = REGISTRY.get(block_name)
         if handler is None:
             continue
-        df = handler.compute_all(prices, vol, scalars)
+        df = handler.compute_all(prices, vol, scalars, instrument_code=instrument_code)
         if not df.empty:
             dfs.append(df)
 
@@ -109,13 +110,23 @@ def calibrate_fdm(
     if not rule_cols:
         return 1.0
 
+    # Drop constant columns (std = 0) — their correlation is undefined.
+    # This happens when a rule returns a flat signal for a given instrument
+    # (e.g. carry = 0.0 for non-FX instruments).
+    clean = forecasts_df[rule_cols].dropna()
+    active_cols = [c for c in rule_cols if clean[c].std() > 0]
+    if not active_cols:
+        return 1.0
+
     if rule_weights is not None:
-        weights = np.array([rule_weights.get(c, 0.0) for c in rule_cols])
+        raw_weights = np.array([rule_weights.get(c, 0.0) for c in active_cols])
+        total = raw_weights.sum()
+        weights = raw_weights / total if total > 0 else np.full(len(active_cols), 1.0 / len(active_cols))
     else:
-        n = len(rule_cols)
+        n = len(active_cols)
         weights = np.full(n, 1.0 / n)
 
-    corr = forecasts_df[rule_cols].dropna().corr().values
+    corr = clean[active_cols].corr().values
     portfolio_variance = weights @ corr @ weights
     fdm = 1.0 / np.sqrt(portfolio_variance)
 

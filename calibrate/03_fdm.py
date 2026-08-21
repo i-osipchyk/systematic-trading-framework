@@ -55,6 +55,7 @@ def main(state_dir=None, split_date=None) -> None:
             is_prices, vol_is, fdm=1.0,
             family_scalars=family_scalars,
             rule_weights=rule_weights,
+            instrument_code=code,
         )
         rule_cols = [c for c in fc_is.columns if c != "combined"]
 

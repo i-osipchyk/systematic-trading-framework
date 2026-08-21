@@ -62,7 +62,7 @@ def main(state_dir=None, split_date=None) -> None:
             vol = daily_vol(is_prices)
 
             for variant in variants:
-                raw = handler.compute_one_raw(is_prices, variant, vol)
+                raw = handler.compute_one_raw(is_prices, variant, vol, instrument_code=code)
                 maf = float(np.nanmean(np.abs(raw)))
                 maf_by_variant[variant].append(maf)
 

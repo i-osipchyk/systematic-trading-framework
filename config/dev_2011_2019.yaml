@@ -1,0 +1,149 @@
+# Dev-period configuration: 2011–2019, 9 instruments
+# ─────────────────────────────────────────────────────────────────────────────
+# Extends dev_2011_2018_no_metals.yaml to 2020-01-01 and adds GER40 (Jul 2014)
+# and SpotCrude (Dec 2014). Their IS data is sparse in early folds but the
+# pipeline pools scalars across all instruments and handles NaN gracefully.
+#
+# Universe: 5 FX + 2 equity indices + 2 commodities = 9 instruments
+# Weights: equal per-instrument (1/9 ≈ 11.1%), giving:
+#   currency group 55.6% (5 × 11.1%)
+#   index group    22.2% (2 × 11.1%)
+#   commodity group 22.2% (2 × 11.1%)
+
+timeframe: D1
+bars_per_year: 256
+end_date: 2020-01-01
+
+instruments:
+  # ── FX ──────────────────────────────────────────────────────────────────────
+  EURUSD:
+    ctrader_symbol: EURUSD
+    description: Euro / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 100000.0
+    spread_cost: 0.00007
+    lot_step: 0.01
+
+  GBPUSD:
+    ctrader_symbol: GBPUSD
+    description: British Pound / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  AUDUSD:
+    ctrader_symbol: AUDUSD
+    description: Australian Dollar / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  USDJPY:
+    ctrader_symbol: USDJPY
+    description: US Dollar / Japanese Yen
+    asset_type: currency
+    currency: JPY
+    traded: true
+    weight: 0.1111
+    pointsize: 100000.0
+    spread_cost: 0.020
+    lot_step: 0.01
+
+  USDX:
+    ctrader_symbol: USDX
+    description: US Dollar Index
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 1000.0
+    spread_cost: 0.05
+    lot_step: 0.01
+
+  # ── Equity indices ───────────────────────────────────────────────────────────
+  US500:
+    ctrader_symbol: US500
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+
+  GER40:
+    ctrader_symbol: GER40
+    description: DAX 40
+    asset_type: index
+    currency: EUR
+    traded: true
+    weight: 0.1111
+    pointsize: 1.0
+    spread_cost: 2.5
+    lot_step: 0.1
+
+  # ── Commodities ──────────────────────────────────────────────────────────────
+  COPPER:
+    ctrader_symbol: Copper
+    description: Copper / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 25000.0
+    spread_cost: 0.0005
+    lot_step: 0.01
+
+  SpotCrude:
+    ctrader_symbol: SpotCrude
+    description: WTI Crude Oil (Spot)
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.1111
+    pointsize: 100.0
+    spread_cost: 0.05
+    lot_step: 0.01
+
+rules:
+  ewmac:
+    family: ema_crossover
+    pairs:
+      - [4, 16]
+      - [8, 32]
+      - [16, 64]
+      - [32, 128]
+      - [64, 256]
+
+  breakout:
+    family: donchian_breakout
+    lookbacks:
+      - 20
+      - 50
+      - 100
+      - 200
+
+  tsmom:
+    family: time_series_momentum
+    lookbacks:
+      - 63
+      - 126
+      - 252
+
+  mr:
+    family: mean_reversion
+    spans:
+      - 16
+      - 200

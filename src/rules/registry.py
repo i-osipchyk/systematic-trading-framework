@@ -5,8 +5,8 @@ Maps config block names to handler objects. Each handler provides a uniform
 interface for computing forecasts and converting between YAML and native types.
 
 Handler interface:
-    compute_all(prices, vol, scalars)  -> pd.DataFrame
-    compute_one_raw(prices, variant, vol) -> pd.Series   (scalar=1.0)
+    compute_all(prices, vol, scalars, instrument_code=None)  -> pd.DataFrame
+    compute_one_raw(prices, variant, vol, instrument_code=None) -> pd.Series  (scalar=1.0)
     variants_from_cfg(cfg_block)       -> list
     parse_scalars(raw)                 -> dict
     dump_scalars(scalars)              -> dict
@@ -22,13 +22,15 @@ import pandas as pd
 
 class EWMACHandler:
     def compute_all(
-        self, prices: pd.Series, vol: pd.Series | None, scalars
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
     ) -> pd.DataFrame:
         import src.rules.ewmac as mod
         return mod.all_ewmac_forecasts(prices, vol, scalars=scalars)
 
     def compute_one_raw(
-        self, prices: pd.Series, variant: tuple, vol: pd.Series | None
+        self, prices: pd.Series, variant: tuple, vol: pd.Series | None,
+        instrument_code: str | None = None,
     ) -> pd.Series:
         import src.rules.ewmac as mod
         fast, slow = variant
@@ -54,13 +56,15 @@ class EWMACHandler:
 
 class MRHandler:
     def compute_all(
-        self, prices: pd.Series, vol: pd.Series | None, scalars
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
     ) -> pd.DataFrame:
         import src.rules.mr as mod
         return mod.all_mr_forecasts(prices, vol, scalars=scalars)
 
     def compute_one_raw(
-        self, prices: pd.Series, variant: int, vol: pd.Series | None
+        self, prices: pd.Series, variant: int, vol: pd.Series | None,
+        instrument_code: str | None = None,
     ) -> pd.Series:
         import src.rules.mr as mod
         return mod.mean_reversion(prices, variant, vol, scalar=1.0)
@@ -83,13 +87,15 @@ class MRHandler:
 
 class BreakoutHandler:
     def compute_all(
-        self, prices: pd.Series, vol: pd.Series | None, scalars
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
     ) -> pd.DataFrame:
         import src.rules.breakout as mod
         return mod.all_breakout_forecasts(prices, scalars=scalars)
 
     def compute_one_raw(
-        self, prices: pd.Series, variant: int, vol: pd.Series | None
+        self, prices: pd.Series, variant: int, vol: pd.Series | None,
+        instrument_code: str | None = None,
     ) -> pd.Series:
         import src.rules.breakout as mod
         return mod.breakout(prices, variant, scalar=1.0)
@@ -112,13 +118,15 @@ class BreakoutHandler:
 
 class TSMOMHandler:
     def compute_all(
-        self, prices: pd.Series, vol: pd.Series | None, scalars
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
     ) -> pd.DataFrame:
         import src.rules.tsmom as mod
         return mod.all_tsmom_forecasts(prices, scalars=scalars)
 
     def compute_one_raw(
-        self, prices: pd.Series, variant: int, vol: pd.Series | None
+        self, prices: pd.Series, variant: int, vol: pd.Series | None,
+        instrument_code: str | None = None,
     ) -> pd.Series:
         import src.rules.tsmom as mod
         return mod.tsmom(prices, variant, scalar=1.0)
@@ -139,9 +147,41 @@ class TSMOMHandler:
         return f"TSMOM_{variant}"
 
 
+class CarryHandler:
+    def compute_all(
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
+    ) -> pd.DataFrame:
+        import src.rules.carry as mod
+        return mod.all_carry_forecasts(prices, instrument_code or "", vol, scalars=scalars)
+
+    def compute_one_raw(
+        self, prices: pd.Series, variant: str, vol: pd.Series | None,
+        instrument_code: str | None = None,
+    ) -> pd.Series:
+        import src.rules.carry as mod
+        return mod.carry(prices, instrument_code or "", vol, scalar=1.0)
+
+    def variants_from_cfg(self, cfg_block: dict) -> list:
+        return ["carry"]
+
+    def parse_scalars(self, raw: dict) -> dict:
+        return {"carry": float(raw.get("carry", 1.0))}
+
+    def dump_scalars(self, scalars: dict) -> dict:
+        return {"carry": round(float(scalars.get("carry", 1.0)), 4)}
+
+    def scalar_key(self, variant: str) -> str:
+        return "carry"
+
+    def rule_name(self, variant: str) -> str:
+        return "CARRY"
+
+
 REGISTRY: dict[str, object] = {
     "ewmac": EWMACHandler(),
     "mr": MRHandler(),
     "breakout": BreakoutHandler(),
     "tsmom": TSMOMHandler(),
+    "carry": CarryHandler(),
 }
