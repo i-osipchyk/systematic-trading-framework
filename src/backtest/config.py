@@ -83,6 +83,26 @@ def load_bars_per_year() -> int:
     return _TIMEFRAME_BARS_PER_YEAR.get(raw.get("timeframe", "D1"), 256)
 
 
+def load_end_date() -> datetime | None:
+    """Return the optional end_date from config, or None if not set.
+
+    When set, the WF pipeline caps its data window at this date, enforcing
+    the dev/test split without looking at out-of-bounds data.
+    """
+    from datetime import datetime, timezone
+    raw = _load_raw()
+    val = raw.get("end_date")
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return datetime.strptime(val, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    # yaml may parse a date literal as a date object
+    from datetime import date
+    if isinstance(val, date):
+        return datetime(val.year, val.month, val.day, tzinfo=timezone.utc)
+    return None
+
+
 def traded_instruments(cfgs: dict[str, InstrumentConfig]) -> list[str]:
     """Return codes of instruments marked traded=true, in config file order."""
     return [code for code, cfg in cfgs.items() if cfg.traded]

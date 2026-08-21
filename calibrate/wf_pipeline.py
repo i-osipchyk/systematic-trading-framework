@@ -46,6 +46,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 import src.backtest.config as config_mod
 
 from src.backtest.config import (
+    load_end_date,
     load_instrument_configs,
     required_fx_helpers,
     set_config,
@@ -125,6 +126,9 @@ def _compute_fold_dates(
     fold is added provided at least MIN_PARTIAL_OOS_DAYS of OOS data are available.
     """
     common_start, common_end = _common_data_window(instruments)
+    cfg_end = load_end_date()
+    if cfg_end is not None and cfg_end < common_end:
+        common_end = cfg_end
     folds = []
     fold = 0
     while True:
@@ -469,13 +473,17 @@ def main() -> None:
         sys.exit(1)
 
     common_start, common_end = _common_data_window(instruments)
+    cfg_end = load_end_date()
+    if cfg_end is not None and cfg_end < common_end:
+        common_end = cfg_end
 
     print(f"\n  {'='*60}")
     print(f"  Walk-forward pipeline")
     print(f"  {'='*60}")
     print(f"  Config      : {config_path}")
     print(f"  WF dir      : {wf_dir}/")
-    print(f"  Data window : {common_start.date()} → {common_end.date()}")
+    print(f"  Data window : {common_start.date()} → {common_end.date()}"
+          + (f"  [capped by end_date]" if cfg_end is not None else ""))
     print(f"  IS window   : expanding, starting at {args.min_is_years}yr")
     print(f"  OOS window  : {args.oos_years}yr per fold")
     print(f"  Folds       : {len(fold_dates)}")

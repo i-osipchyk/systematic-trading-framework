@@ -1,0 +1,181 @@
+# Dev-period configuration: 2011–2018
+# ─────────────────────────────────────────────────────────────────────────────
+# Used for walk-forward calibration and rule selection.
+# All iteration (rule variants, universe, weights) happens on this period only.
+#
+# The end_date caps the data window so no 2018+ bars are seen during dev WF.
+# Do NOT look at results beyond this date until the dev system is frozen and
+# config/test_2018_2026.yaml is the active file.
+#
+# Instruments: 11 dev instruments, no crypto, no US30.
+# FX helpers: EURUSD is traded (also serves as its own helper); EURGBP auto-
+#             detected (GER40 is EUR → EURUSD needed; no GBP instruments).
+#
+# Weights: placeholders — step 06 calibrates these during WF.
+# spread_cost: indicative Pepperstone raw-account spreads in price units.
+
+timeframe: D1
+bars_per_year: 256
+end_date: 2018-01-01
+
+instruments:
+  # ── FX ──────────────────────────────────────────────────────────────────────
+  EURUSD:
+    ctrader_symbol: EURUSD
+    description: Euro / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 100000.0
+    spread_cost: 0.00007
+    lot_step: 0.01
+
+  GBPUSD:
+    ctrader_symbol: GBPUSD
+    description: British Pound / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  AUDUSD:
+    ctrader_symbol: AUDUSD
+    description: Australian Dollar / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  USDJPY:
+    ctrader_symbol: USDJPY
+    description: US Dollar / Japanese Yen
+    asset_type: currency
+    currency: JPY
+    traded: true
+    weight: 0.0909
+    pointsize: 100000.0
+    spread_cost: 0.020
+    lot_step: 0.01
+
+  USDX:
+    ctrader_symbol: USDX
+    description: US Dollar Index
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 1000.0
+    spread_cost: 0.05
+    lot_step: 0.01
+
+  # ── Equity indices ───────────────────────────────────────────────────────────
+  US500:
+    ctrader_symbol: US500
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+
+  GER40:
+    ctrader_symbol: GER40
+    description: DAX 40
+    asset_type: index
+    currency: EUR
+    traded: true
+    weight: 0.0909
+    pointsize: 1.0
+    spread_cost: 2.5
+    lot_step: 0.1
+
+  # ── Commodities ──────────────────────────────────────────────────────────────
+  XAU:
+    ctrader_symbol: XAUUSD
+    description: Gold / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 100.0
+    spread_cost: 0.21
+    lot_step: 0.01
+
+  XAG:
+    ctrader_symbol: XAGUSD
+    description: Silver / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 100.0
+    spread_cost: 0.03
+    lot_step: 0.01
+
+  SpotCrude:
+    ctrader_symbol: SpotCrude
+    description: WTI Crude Oil (spot)
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 1000.0
+    spread_cost: 0.05
+    lot_step: 0.01
+
+  COPPER:
+    ctrader_symbol: COPPER
+    description: Copper / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.0909
+    pointsize: 25000.0
+    spread_cost: 0.0005
+    lot_step: 0.01
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trading rules
+# ─────────────────────────────────────────────────────────────────────────────
+# EWMAC_2_8 excluded (high turnover, poor cost-adjusted edge on CFD spreads).
+# MR kept for dev evaluation — will be pruned if it doesn't earn its weight.
+
+rules:
+  ewmac:
+    family: ema_crossover
+    pairs:
+      - [4, 16]
+      - [8, 32]
+      - [16, 64]
+      - [32, 128]
+      - [64, 256]
+
+  breakout:
+    family: donchian_breakout
+    lookbacks:
+      - 20
+      - 50
+      - 100
+      - 200
+
+  tsmom:
+    family: time_series_momentum
+    lookbacks:
+      - 63
+      - 126
+      - 252
+
+  mr:
+    family: mean_reversion
+    spans:
+      - 16
+      - 200
