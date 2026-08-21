@@ -133,7 +133,7 @@ instruments:
     lot_step: 0.01
 
   COPPER:
-    ctrader_symbol: COPPER
+    ctrader_symbol: Copper
     description: Copper / USD
     asset_type: commodity
     currency: USD
