@@ -89,17 +89,16 @@ def load_end_date() -> datetime | None:
     When set, the WF pipeline caps its data window at this date, enforcing
     the dev/test split without looking at out-of-bounds data.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime, date
     raw = _load_raw()
     val = raw.get("end_date")
     if val is None:
         return None
     if isinstance(val, str):
-        return datetime.strptime(val, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(val, "%Y-%m-%d")
     # yaml may parse a date literal as a date object
-    from datetime import date
     if isinstance(val, date):
-        return datetime(val.year, val.month, val.day, tzinfo=timezone.utc)
+        return datetime(val.year, val.month, val.day)
     return None
 
 
