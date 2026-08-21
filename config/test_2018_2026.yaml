@@ -1,0 +1,134 @@
+# TEST CONFIG — 2018-2026 (blind test period)
+# ─────────────────────────────────────────────────────────────────────────────
+# Mirrors dev_freeze.yaml exactly. split_date pins the IS/OOS boundary at the
+# dev/test seam so calibration scripts use 2011-2018 as IS and the full
+# 2018-2026 data as OOS — without capping what gets loaded.
+#
+# Workflow:
+#   1. Run calibrate/01 → 07 with this config → calibrates on IS 2011-2018
+#   2. Run calibrate/08 → reports IS (2011-2018) + OOS (2018-2026)
+# ─────────────────────────────────────────────────────────────────────────────
+
+timeframe: D1
+bars_per_year: 256
+split_date: 2018-01-01        # explicit dev/test boundary
+
+instruments:
+  EURUSD:
+    ctrader_symbol: EURUSD
+    description: Euro / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100000.0
+    spread_cost: 0.00007
+    lot_step: 0.01
+
+  GBPUSD:
+    ctrader_symbol: GBPUSD
+    description: British Pound / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  AUDUSD:
+    ctrader_symbol: AUDUSD
+    description: Australian Dollar / US Dollar
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+
+  USDJPY:
+    ctrader_symbol: USDJPY
+    description: US Dollar / Japanese Yen
+    asset_type: currency
+    currency: JPY
+    traded: true
+    weight: 0.125
+    pointsize: 100000.0
+    spread_cost: 0.020
+    lot_step: 0.01
+
+  USDX:
+    ctrader_symbol: USDX
+    description: US Dollar Index
+    asset_type: currency
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 1000.0
+    spread_cost: 0.05
+    lot_step: 0.01
+
+  US500:
+    ctrader_symbol: US500
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+
+  COPPER:
+    ctrader_symbol: Copper
+    description: Copper / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 25000.0
+    spread_cost: 0.0005
+    lot_step: 0.01
+
+  XAU:
+    ctrader_symbol: XAUUSD
+    description: Gold / US Dollar
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100.0
+    spread_cost: 0.35
+    lot_step: 0.01
+
+rules:
+  ewmac:
+    family: ema_crossover
+    pairs:
+      - [4, 16]
+      - [8, 32]
+      - [16, 64]
+      - [32, 128]
+      - [64, 256]
+
+  breakout:
+    family: donchian_breakout
+    lookbacks:
+      - 20
+      - 50
+      - 100
+      - 200
+
+  tsmom:
+    family: time_series_momentum
+    lookbacks:
+      - 63
+      - 126
+      - 252
+
+  mr:
+    family: mean_reversion
+    spans:
+      - 16
+      - 200

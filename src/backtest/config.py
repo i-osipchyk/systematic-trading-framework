@@ -102,6 +102,25 @@ def load_end_date() -> datetime | None:
     return None
 
 
+def load_split_date() -> datetime | None:
+    """Return the explicit IS/OOS split date from config, or None if not set.
+
+    When set, calibration scripts use this date directly instead of computing
+    a data-driven 70/30 split. Use this for test configs where the split is
+    fixed at the dev/test boundary.
+    """
+    from datetime import datetime, date
+    raw = _load_raw()
+    val = raw.get("split_date")
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return datetime.strptime(val, "%Y-%m-%d")
+    if isinstance(val, date):
+        return datetime(val.year, val.month, val.day)
+    return None
+
+
 def traded_instruments(cfgs: dict[str, InstrumentConfig]) -> list[str]:
     """Return codes of instruments marked traded=true, in config file order."""
     return [code for code, cfg in cfgs.items() if cfg.traded]

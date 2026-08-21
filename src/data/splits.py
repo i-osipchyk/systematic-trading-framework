@@ -27,12 +27,17 @@ def compute_split_date(
 ) -> datetime:
     """Compute the global IS/OOS split date.
 
-    Uses the common data window across all instruments (or a provided subset).
-    Split is calendar-time based so the OOS window aligns across instruments
-    regardless of differing trading-day counts (e.g. crypto vs FX).
+    If the active config specifies a split_date, that value is returned
+    directly. Otherwise, the split is computed as a calendar-time fraction of
+    the common data window across all instruments.
 
     Returns the first date that belongs to the OOS period.
     """
+    from src.backtest.config import load_split_date
+    explicit = load_split_date()
+    if explicit is not None:
+        return explicit
+
     if instrument_codes is None:
         instrument_codes = [
             p.stem for p in adjusted_prices_dir().glob("*.csv")
