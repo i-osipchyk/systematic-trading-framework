@@ -13,6 +13,7 @@ Examples:
 import argparse
 from datetime import datetime, timezone
 
+from src.backtest.config import set_config
 from src.data.pipeline import run_pipeline
 
 
@@ -30,9 +31,15 @@ def main():
                         help="Bar period (default: D1)")
     parser.add_argument("--demo", action="store_true",
                         help="Use demo account endpoint instead of live")
+    parser.add_argument("--config", default=None, metavar="PATH",
+                        help="Config file to use for instrument/symbol lookup "
+                             "(default: config/default.yaml)")
     parser.add_argument("--instruments", nargs="+", metavar="CODE",
-                        help="Only fetch these instrument codes (default: all)")
+                        help="Only fetch these instrument codes (default: all in config)")
     args = parser.parse_args()
+
+    if args.config:
+        set_config(args.config)
 
     from_dt = parse_date(args.from_date)
     to_dt = parse_date(args.to_date) if args.to_date else datetime.now(timezone.utc)
