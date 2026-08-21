@@ -219,3 +219,116 @@ an arbitrary list of rule families defined in config.
 | BTC/ETH in formal test set | Excluded | Pre-2018 crypto markets were thin, manipulated, and structurally different. A trend rule calibrated on 2011–2018 data would be calibrating on an unusual regime that is unlikely to repeat. Including them would also raise suspicion that OOS results are contaminated by crypto's exceptional 2020–2021 run. |
 | Raising FDM cap above 2.5 | Not considered | The cap exists to prevent explosive leverage in tail scenarios. Our FDM already hits the cap for all instruments (the EWMAC/MR anti-correlation requires ~3.5 to fully restore MAF). The right fix is to change the rule mix or adjust weights, not to raise the cap. |
 | Intraday rules / H4 calibration | Not yet explored | The framework supports H4 and H1 data. Intraday trend rules would have much higher turnover and cost drag. May be worth exploring after the daily-bar system is stable. |
+
+---
+
+## 7. Implementation Plan
+
+Work proceeds in three phases. The dev-period results gate entry into the test period — we do
+not look at test-period Sharpe until the dev system is frozen.
+
+### Phase 1 — Infrastructure (prerequisite for everything else)
+
+**1a. Generalise the rule engine**
+
+The codebase currently treats EWMAC and MR as the only two families, with hardcoded binary
+branching in `combine.py`, `wf_pipeline.py`, and the calibration scripts. Before adding breakout
+or TSMOM, this needs to become a generic loop over whatever families are declared in config.
+
+Changes needed:
+- `src/rules/combine.py` — iterate over rule families from config rather than `if ewmac / if mr`
+- `calibrate/01_scale_forecasts.py` through `08_backtest.py` — replace family-specific branches
+  with a loop over `rules` keys
+- `calibrate/wf_pipeline.py` — same generalisation for scalar loading and forecast construction
+- Config schema: each rule family declares `family:` (maps to a Python class) and its parameters
+
+**1b. Implement Donchian breakout rule**
+
+New file `src/rules/breakout.py`. Signal: goes long when price closes above the N-bar high,
+short below the N-bar low. Output scaled to MAF=10 on IS data, same as EWMAC/MR.
+
+Variants to calibrate: lookbacks 20, 50, 100, 200 days.
+
+**1c. Implement TSMOM rule**
+
+New file `src/rules/tsmom.py`. Signal: sign of total return over the past L months, magnitude
+proportional to return size, normalised to MAF=10.
+
+Variants to calibrate: 3-month (63 days), 6-month (126 days), 12-month (252 days) lookbacks.
+
+---
+
+### Phase 2 — Dev-period calibration (2011–2018)
+
+**2a. Fetch extended history**
+
+Fetch D1 data from 2011-01-01 for all dev instruments: GBPUSD, AUDUSD, EURUSD, USDX, USDJPY,
+XAU, XAG, US500, GER40, SpotCrude, COPPER. Use `scripts/fetch_history.py` against the live
+Pepperstone account (not demo — live account has deeper history).
+
+**2b. Create dev config**
+
+New file `config/dev_2011_2018.yaml`:
+- Instruments: GBPUSD, AUDUSD, EURUSD, USDX, USDJPY, XAU, XAG, US500, GER40, SpotCrude, COPPER
+- Date range: 2011-01-01 → 2018-01-01
+- Rules: EWMAC (speeds 4–256, drop 2_8), Donchian breakout, TSMOM
+- MR: keep for now, evaluate whether it earns its weight in dev WF
+
+**2c. Run walk-forward on dev period**
+
+Multiple WF runs to select the best-performing rule set and universe. Evaluation criteria:
+- IS SR averaged across folds
+- OOS SR averaged across folds
+- IS/OOS SR ratio (closer to 1.0 = less overfitting)
+- IDM level (higher = better diversification from the expanded universe)
+
+Decisions to make during dev:
+- Which rule families earn their weight (EWMAC, breakout, TSMOM, MR)?
+- Which variants within each family are robust vs redundant?
+- Which instruments improve IDM without dragging down portfolio SR?
+- What instrument weights by asset class group?
+
+**2d. Freeze the dev system**
+
+Once satisfied with dev results, lock all parameters: scalars, weights, FDM, IDM, vol target.
+Write them into `config/test_2018_2026.yaml`. Do not change them after this point based on
+test-period feedback.
+
+---
+
+### Phase 3 — Test-period evaluation (2018–2026, once only)
+
+**3a. Create test config**
+
+New file `config/test_2018_2026.yaml`:
+- Instruments: all dev instruments + NAS100, UK100, HK50, NatGas, JPN225
+- Date range: 2018-01-01 → 2026-08-21
+- All calibrated parameters from dev freeze carried forward
+
+**3b. Fetch test-period data**
+
+Fetch D1 data for the additional test instruments: NAS100, UK100, HK50, NatGas, JPN225.
+
+**3c. Run single blind evaluation**
+
+Run the frozen system on the test period. This is a one-shot result — do not iterate on it.
+If test SR is materially below dev SR, investigate whether the gap is structural (e.g. regime
+change post-2018) or a sign of overfitting in the dev period. Either way, the next iteration
+starts a fresh dev period, not a re-tuning of the existing one.
+
+---
+
+### Dependency order
+
+```
+1a (rule engine generalisation)
+ └─ 1b (breakout rule)
+ └─ 1c (tsmom rule)
+      └─ 2a (fetch history)
+           └─ 2b (dev config)
+                └─ 2c (dev WF runs)  ← iterate here until frozen
+                     └─ 2d (freeze)
+                          └─ 3a (test config)
+                               └─ 3b (fetch test-period data)
+                                    └─ 3c (blind test evaluation)
+```
