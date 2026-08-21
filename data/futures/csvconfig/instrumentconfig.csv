@@ -1,0 +1,11 @@
+Instrument,Description,Pointsize,Currency,AssetClass,PerBlock,Percentage,PerTrade,Region
+BTC,Bitcoin / USD,1.0,USD,Crypto,0,0,0,Global
+ETH,Ethereum / USD,1.0,USD,Crypto,0,0,0,Global
+US500,S&P 500 Index,1.0,USD,Equity,0,0,0,US
+US30,Dow Jones Industrial Average,1.0,USD,Equity,0,0,0,US
+GER40,DAX 40,1.0,EUR,Equity,0,0,0,EMEA
+XAU,Gold / USD,100.0,USD,Commodity,0,0,0,Global
+EURUSD,Euro / US Dollar,100000.0,USD,FX,0,0,0,Global
+EURGBP,Euro / British Pound,100000.0,GBP,FX,0,0,0,Global
+USOIL,WTI Crude Oil,100.0,USD,Commodity,0,0,0,Global
+USDJPY,US Dollar / Japanese Yen,100000.0,JPY,FX,0,0,0,Global

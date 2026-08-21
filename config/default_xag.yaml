@@ -1,0 +1,161 @@
+# Default strategy configuration (XAG variant)
+# ─────────────────────────────────────────────────────────────────────────────
+# Contains both the instrument universe and the trading rule set.
+# Copy and rename this file to create alternative configurations, then run:
+#   uv run python calibrate/pipeline.py --config config/your_name.yaml
+#
+# Timeframe fields:
+#   timeframe     : bar period for data fetch and calibration — D1 | H4 | H1 | M1
+#   bars_per_year : annualisation factor (bars in a trading year).
+#                   Omit to use the built-in defaults:
+#                     D1 → 256, H4 → 1536, H1 → 6144, M1 → 368640
+#
+# Instrument fields:
+#   ctrader_symbol : symbol on the broker platform
+#   description    : human-readable name
+#   asset_type     : crypto | index | commodity | currency
+#   currency       : native P&L currency (USD | EUR | GBP | JPY)
+#   traded         : true = in portfolio; false = FX conversion helper only
+#   pointsize      : cash P&L per 1-unit price move per 1 contract
+#   spread_cost    : effective round-trip cost in native price units
+#   lot_step       : minimum tradeable lot increment on the broker (e.g. 0.01)
+#                    rounded_position = round(position / lot_step) * lot_step
+#   weight         : calibrated instrument weight (output of step 06)
+#
+# FX conversion helpers are auto-detected from the currencies of traded
+# instruments. You only need to declare them here if they exist in the
+# data store — their traded: false flag keeps them out of the portfolio.
+
+timeframe: D1
+bars_per_year: 256
+
+instruments:
+  BTC:
+    ctrader_symbol: BTCUSD
+    description: Bitcoin / USD
+    asset_type: crypto
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 1.0
+    spread_cost: 35.0
+    lot_step: 0.01
+
+  ETH:
+    ctrader_symbol: ETHUSD
+    description: Ethereum / USD
+    asset_type: crypto
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 1.0
+    spread_cost: 3.0
+    lot_step: 0.01
+
+  US500:
+    ctrader_symbol: US500
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.1167
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+
+  US30:
+    ctrader_symbol: US30
+    description: Dow Jones Industrial Average
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.1167
+    pointsize: 1.0
+    spread_cost: 2.2
+    lot_step: 0.1
+
+  GER40:
+    ctrader_symbol: GER40
+    description: DAX 40
+    asset_type: index
+    currency: EUR
+    traded: true
+    weight: 0.1167
+    pointsize: 1.0
+    spread_cost: 2.5
+    lot_step: 0.1
+
+  XAU:
+    ctrader_symbol: XAUUSD
+    description: Gold / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100.0
+    spread_cost: 0.21
+    lot_step: 0.01
+
+  XAG:
+    ctrader_symbol: XAGUSD
+    description: Silver / USD
+    asset_type: commodity
+    currency: USD
+    traded: true
+    weight: 0.125
+    pointsize: 100.0
+    spread_cost: 0.03
+    lot_step: 0.01
+
+  USDJPY:
+    ctrader_symbol: USDJPY
+    description: US Dollar / Japanese Yen
+    asset_type: currency
+    currency: JPY
+    traded: true
+    weight: 0.15
+    pointsize: 100000.0
+    spread_cost: 0.020
+    lot_step: 0.01
+
+  EURUSD:
+    ctrader_symbol: EURUSD
+    description: Euro / US Dollar (FX helper)
+    asset_type: currency
+    currency: USD
+    traded: false
+    weight: 0.0
+    pointsize: 100000.0
+    spread_cost: 0.00007
+    lot_step: 0.01
+
+  EURGBP:
+    ctrader_symbol: EURGBP
+    description: Euro / British Pound (FX helper)
+    asset_type: currency
+    currency: GBP
+    traded: false
+    weight: 0.0
+    pointsize: 100000.0
+    spread_cost: 0.0001
+    lot_step: 0.01
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trading rules
+# ─────────────────────────────────────────────────────────────────────────────
+rules:
+  ewmac:
+    family: ema_crossover
+    pairs:
+      - [2, 8]
+      - [4, 16]
+      - [8, 32]
+      - [16, 64]
+      - [32, 128]
+      - [64, 256]
+
+  mr:
+    family: mean_reversion
+    spans:
+      - 16
+      - 200
