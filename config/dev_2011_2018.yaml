@@ -7,9 +7,10 @@
 # Do NOT look at results beyond this date until the dev system is frozen and
 # config/test_2018_2026.yaml is the active file.
 #
-# Instruments: 11 dev instruments, no crypto, no US30.
-# FX helpers: EURUSD is traded (also serves as its own helper); EURGBP auto-
-#             detected (GER40 is EUR → EURUSD needed; no GBP instruments).
+# Instruments: 9 dev instruments, no crypto, no US30.
+# GER40 and SpotCrude excluded — Pepperstone history only goes back to 2014,
+# which is insufficient for a 3-year IS window within the 2011-2018 dev period.
+# They will be included in the test config (2018-2026) where history is full.
 #
 # Weights: placeholders — step 06 calibrates these during WF.
 # spread_cost: indicative Pepperstone raw-account spreads in price units.
@@ -26,7 +27,7 @@ instruments:
     asset_type: currency
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100000.0
     spread_cost: 0.00007
     lot_step: 0.01
@@ -37,7 +38,7 @@ instruments:
     asset_type: currency
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100000.0
     spread_cost: 0.00009
     lot_step: 0.01
@@ -48,7 +49,7 @@ instruments:
     asset_type: currency
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100000.0
     spread_cost: 0.00009
     lot_step: 0.01
@@ -59,7 +60,7 @@ instruments:
     asset_type: currency
     currency: JPY
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100000.0
     spread_cost: 0.020
     lot_step: 0.01
@@ -70,32 +71,21 @@ instruments:
     asset_type: currency
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 1000.0
     spread_cost: 0.05
     lot_step: 0.01
 
-  # ── Equity indices ───────────────────────────────────────────────────────────
+  # ── Equity index ─────────────────────────────────────────────────────────────
   US500:
     ctrader_symbol: US500
     description: S&P 500 Index
     asset_type: index
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 1.0
     spread_cost: 0.4
-    lot_step: 0.1
-
-  GER40:
-    ctrader_symbol: GER40
-    description: DAX 40
-    asset_type: index
-    currency: EUR
-    traded: true
-    weight: 0.0909
-    pointsize: 1.0
-    spread_cost: 2.5
     lot_step: 0.1
 
   # ── Commodities ──────────────────────────────────────────────────────────────
@@ -105,7 +95,7 @@ instruments:
     asset_type: commodity
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100.0
     spread_cost: 0.21
     lot_step: 0.01
@@ -116,20 +106,9 @@ instruments:
     asset_type: commodity
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 100.0
     spread_cost: 0.03
-    lot_step: 0.01
-
-  SpotCrude:
-    ctrader_symbol: SpotCrude
-    description: WTI Crude Oil (spot)
-    asset_type: commodity
-    currency: USD
-    traded: true
-    weight: 0.0909
-    pointsize: 1000.0
-    spread_cost: 0.05
     lot_step: 0.01
 
   COPPER:
@@ -138,7 +117,7 @@ instruments:
     asset_type: commodity
     currency: USD
     traded: true
-    weight: 0.0909
+    weight: 0.1111
     pointsize: 25000.0
     spread_cost: 0.0005
     lot_step: 0.01

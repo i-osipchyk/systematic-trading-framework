@@ -108,7 +108,7 @@ def _common_data_window(instrument_codes: list[str]) -> tuple[datetime, datetime
             pass
     if not starts:
         raise RuntimeError("No instrument data found.")
-    return max(starts), min(ends)
+    return min(starts), min(ends)
 
 
 MIN_PARTIAL_OOS_DAYS = 90
