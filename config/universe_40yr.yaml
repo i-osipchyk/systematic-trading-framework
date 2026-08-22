@@ -202,7 +202,7 @@ instruments:
     ctrader_symbol: XAGUSD
     quandl_dataset: CHRIS/CME_SI1
     yf_ticker: "SI=F"
-    # Silver pre-2000: no free daily source; FRED SLVPRUSD series returned 404
+    eco3min_silver: true   # eco3min.fr silver-price.csv, World Bank monthly from 1960
 
   COPPER:
     description: Copper / USD

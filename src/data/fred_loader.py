@@ -177,26 +177,45 @@ def fetch_fred_price(instrument: str, start: str = "1984-01-01") -> pd.DataFrame
     return _to_ohlcv(series, start=start)
 
 
-def fetch_datahub_gold(start: str = "1984-01-01") -> pd.DataFrame:
-    """Fetch monthly gold prices from datahub.io (LBMA fixing, from 1833).
-
-    Monthly data is forward-filled to business days. Use splice_series() to
-    combine with daily yfinance/cTrader data for the more recent period.
-    """
-    url = "https://datahub.io/core/gold-prices/r/monthly.csv"
+def _fetch_monthly_csv(url: str, label: str, start: str = "1984-01-01") -> pd.DataFrame:
+    """Generic helper: fetch a two-column (date, price) monthly CSV and return OHLCV."""
     try:
         r = requests.get(url, timeout=_TIMEOUT)
         r.raise_for_status()
     except Exception as e:
-        print(f"  [datahub] ERROR fetching gold: {e}")
+        print(f"  [{label}] ERROR: {e}")
         return pd.DataFrame()
 
     df = pd.read_csv(io.StringIO(r.text))
+    df = df.iloc[:, :2]               # keep first two columns regardless of name
     df.columns = ["date", "price"]
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df = df.dropna()
     series = df.set_index("date")["price"].sort_index()
     series = _to_daily(series)
     return _to_ohlcv(series, start=start)
+
+
+def fetch_datahub_gold(start: str = "1984-01-01") -> pd.DataFrame:
+    """Fetch monthly gold prices from datahub.io (LBMA fixing, from 1833)."""
+    return _fetch_monthly_csv(
+        "https://datahub.io/core/gold-prices/r/monthly.csv",
+        label="datahub/gold",
+        start=start,
+    )
+
+
+def fetch_eco3min_silver(start: str = "1984-01-01") -> pd.DataFrame:
+    """Fetch monthly silver prices from eco3min.fr (World Bank Pink Sheet, from 1960).
+
+    Monthly data is forward-filled to business days then spliced with SI=F at 2000.
+    """
+    return _fetch_monthly_csv(
+        "https://eco3min.fr/dataset/silver-price.csv",
+        label="eco3min/silver",
+        start=start,
+    )
 
 
 def splice_series(early: pd.DataFrame, late: pd.DataFrame) -> pd.DataFrame:

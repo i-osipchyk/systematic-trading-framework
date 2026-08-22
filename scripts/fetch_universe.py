@@ -48,6 +48,7 @@ from src.data.fred_loader import (
     fetch_fred_price,
     fetch_fred_fx,
     fetch_datahub_gold,
+    fetch_eco3min_silver,
     splice_series,
 )
 
@@ -197,6 +198,21 @@ def fetch_instrument(
                 best = dh_df
             else:
                 best = splice_series(early=dh_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
+
+    # 3e. eco3min.fr — silver monthly from 1960, splice with SI=F at 2000
+    if cfg.get("eco3min_silver"):
+        print(f"  [eco3min] silver monthly ... ", end="", flush=True)
+        raw = fetch_eco3min_silver(start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            eco_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(eco_df))
+            if best is None:
+                best = eco_df
+            else:
+                best = splice_series(early=eco_df, late=best)
                 print(f"  [splice] combined: {_report(best)}")
         else:
             print("no data")
