@@ -106,8 +106,6 @@ rules:
   ewmac:
     family: ema_crossover
     pairs:
-      - [4, 16]
-      - [8, 32]
       - [16, 64]
       - [32, 128]
       - [64, 256]
