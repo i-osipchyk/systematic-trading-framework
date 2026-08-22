@@ -143,6 +143,7 @@ instruments:
     traded: false
     quandl_dataset: CHRIS/CME_TY1
     yf_ticker: "ZN=F"
+    fred_bond: US10YR     # FRED DGS10 yield → price proxy, from 1962
 
   US30YR:
     description: US 30-Year T-Bond Futures (continuous)
@@ -155,6 +156,7 @@ instruments:
     traded: false
     quandl_dataset: CHRIS/CME_US1
     yf_ticker: "ZB=F"
+    fred_bond: US30YR     # FRED DGS30 yield → price proxy, from 1977
 
   BUND:
     description: German Bund Futures (continuous)
@@ -166,7 +168,8 @@ instruments:
     lot_step: 0.01
     traded: false
     quandl_dataset: CHRIS/EUREX_FGBL1
-    # yfinance does not carry EUREX contracts; requires NASDAQ_DATA_LINK_API_KEY
+    fred_bond: BUND       # FRED German long-term yield → price proxy, from 1960
+    # yfinance does not carry EUREX contracts
 
   # ── Metals ────────────────────────────────────────────────────────────────
 
@@ -223,6 +226,7 @@ instruments:
     ctrader_symbol: SpotCrude
     quandl_dataset: CHRIS/CME_CL1
     yf_ticker: "CL=F"
+    fred_price: SpotCrude  # FRED DCOILWTICO spot price, from 1986
 
   NatGas:
     description: Natural Gas

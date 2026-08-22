@@ -30,9 +30,11 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
+from dotenv import load_dotenv
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
+load_dotenv(ROOT / ".env")
 
 from src.data.pst_writer import (
     write_adjusted_prices,
@@ -41,6 +43,7 @@ from src.data.pst_writer import (
 )
 from src.data.yf_loader import fetch_yfinance
 from src.data.quandl_loader import fetch_quandl
+from src.data.fred_loader import fetch_bond_price, fetch_fred_price, splice_series
 
 UNIVERSE_CONFIG = ROOT / "config" / "universe_40yr.yaml"
 TIMEFRAME = "D1"  # universe is daily; always write to the D1 data directory
@@ -83,6 +86,12 @@ def df_to_pst_format(df: pd.DataFrame, code: str) -> pd.DataFrame:
     return out[["DATETIME", "OPEN", "HIGH", "LOW", "CLOSE", "VOLUME"]]
 
 
+def _report(raw: pd.DataFrame) -> str:
+    if raw.empty:
+        return "no data"
+    return f"{len(raw)} bars from {raw['DATETIME'].iloc[0].date()} to {raw['DATETIME'].iloc[-1].date()}"
+
+
 def fetch_instrument(
     code: str,
     cfg: dict,
@@ -91,40 +100,72 @@ def fetch_instrument(
 ) -> pd.DataFrame | None:
     """Fetch price data for a single instrument.
 
+    Source priority:
+      1. Quandl CHRIS  — Panama-adjusted continuous futures (requires API key)
+      2. Yahoo Finance — front-month futures / cash index
+      3. FRED          — bond yield → price proxy (bonds) or spot price (crude)
+
+    For bonds and crude, FRED extends the yfinance series back to 1962/1977/1986
+    using a price-level splice at the overlap point.
+
     Returns a DATETIME/CLOSE DataFrame, or None on failure.
     """
-    frames: list[pd.DataFrame] = []
+    best: pd.DataFrame | None = None
 
-    # 1. Quandl CHRIS (best for continuous futures)
+    # 1. Quandl CHRIS
     if use_quandl and cfg.get("quandl_dataset"):
         print(f"  [quandl] {cfg['quandl_dataset']} ... ", end="", flush=True)
         raw = fetch_quandl(cfg["quandl_dataset"], start=start)
         if not raw.empty and "CLOSE" in raw.columns:
-            frames.append(raw[["DATETIME", "CLOSE"]])
-            print(f"{len(raw)} bars from {raw['DATETIME'].iloc[0].date()} to {raw['DATETIME'].iloc[-1].date()}")
+            best = raw[["DATETIME", "CLOSE"]]
+            print(_report(best))
         else:
             print("no data")
 
-    # 2. Yahoo Finance
-    if cfg.get("yf_ticker") and (not frames or frames[0]["DATETIME"].iloc[0].year > int(start[:4]) + 3):
+    # 2. Yahoo Finance (use if Quandl failed or didn't go back far enough)
+    yf_start = start if best is None else start
+    if cfg.get("yf_ticker") and (best is None or best["DATETIME"].iloc[0].year > int(start[:4]) + 3):
         print(f"  [yfinance] {cfg['yf_ticker']} ... ", end="", flush=True)
-        raw = fetch_yfinance(cfg["yf_ticker"], start=start)
+        raw = fetch_yfinance(cfg["yf_ticker"], start=yf_start)
         if not raw.empty and "CLOSE" in raw.columns:
-            frames.append(raw[["DATETIME", "CLOSE"]])
-            print(f"{len(raw)} bars from {raw['DATETIME'].iloc[0].date()} to {raw['DATETIME'].iloc[-1].date()}")
+            yf_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(yf_df))
+            best = yf_df if best is None else merge_series(best, yf_df)
         else:
             print("no data")
 
-    if not frames:
-        return None
+    # 3. FRED — bond price proxy (splice with actual futures where they overlap)
+    if cfg.get("fred_bond"):
+        print(f"  [fred] bond yield → price ({cfg['fred_bond']}) ... ", end="", flush=True)
+        raw = fetch_bond_price(cfg["fred_bond"], start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            fred_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(fred_df))
+            if best is None:
+                best = fred_df
+            else:
+                # Splice: FRED is the early series, yfinance/quandl is the late series
+                best = splice_series(early=fred_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
 
-    # Take the frame with earliest start date; then append later frames for recency
-    frames.sort(key=lambda d: d["DATETIME"].iloc[0])
-    result = frames[0]
-    for extra in frames[1:]:
-        result = merge_series(result, extra)
+    # 3b. FRED — commodity spot price (splice with futures where they overlap)
+    if cfg.get("fred_price"):
+        print(f"  [fred] spot price ({cfg['fred_price']}) ... ", end="", flush=True)
+        raw = fetch_fred_price(cfg["fred_price"], start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            fred_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(fred_df))
+            if best is None:
+                best = fred_df
+            else:
+                best = splice_series(early=fred_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
 
-    return result
+    return best
 
 
 def main():

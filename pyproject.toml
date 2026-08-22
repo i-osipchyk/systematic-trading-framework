@@ -20,6 +20,7 @@ dependencies = [
     "service-identity>=24.2.0",
     "yfinance>=1.6.0",
     "nasdaq-data-link>=1.0.4",
+    "pandas-datareader>=0.10.0",
 ]
 
 [tool.uv]
