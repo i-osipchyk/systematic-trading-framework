@@ -45,12 +45,13 @@ def multiple_prices_dir(timeframe: str | None = None) -> Path:
     return d
 
 
-def write_adjusted_prices(df: pd.DataFrame, instrument_code: str) -> Path:
+def write_adjusted_prices(df: pd.DataFrame, instrument_code: str, timeframe: str | None = None) -> Path:
     """Write close prices as pysystemtrade adjusted prices CSV.
 
     Args:
         df: DataFrame with DATETIME and CLOSE columns.
         instrument_code: Framework instrument code (e.g. 'BTC').
+        timeframe: Bar period ('D1', 'H4', etc.). Defaults to active config.
 
     Returns:
         Path to written file.
@@ -59,12 +60,12 @@ def write_adjusted_prices(df: pd.DataFrame, instrument_code: str) -> Path:
     series.index = pd.to_datetime(series.index)
     series.index.name = "DATETIME"
 
-    out_path = adjusted_prices_dir() / f"{instrument_code}.csv"
+    out_path = adjusted_prices_dir(timeframe) / f"{instrument_code}.csv"
     series.to_csv(out_path, date_format=PST_DATE_FMT, header=True)
     return out_path
 
 
-def write_multiple_prices(df: pd.DataFrame, instrument_code: str) -> Path:
+def write_multiple_prices(df: pd.DataFrame, instrument_code: str, timeframe: str | None = None) -> Path:
     """Write multiple-prices CSV (needed for pysystemtrade's full data model).
 
     For CFDs: PRICE = CARRY = FORWARD = CLOSE. All contract columns use the
@@ -82,7 +83,7 @@ def write_multiple_prices(df: pd.DataFrame, instrument_code: str) -> Path:
     out["CARRY_CONTRACT"] = DUMMY_CONTRACT
     out["FORWARD_CONTRACT"] = DUMMY_CONTRACT
 
-    out_path = multiple_prices_dir() / f"{instrument_code}.csv"
+    out_path = multiple_prices_dir(timeframe) / f"{instrument_code}.csv"
     out.to_csv(out_path, date_format=PST_DATE_FMT)
     return out_path
 

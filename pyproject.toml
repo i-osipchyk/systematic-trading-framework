@@ -18,6 +18,8 @@ dependencies = [
     "python-dotenv>=1.0",
     "pysystemtrade @ git+https://github.com/robcarver17/pysystemtrade.git",
     "service-identity>=24.2.0",
+    "yfinance>=1.6.0",
+    "nasdaq-data-link>=1.0.4",
 ]
 
 [tool.uv]

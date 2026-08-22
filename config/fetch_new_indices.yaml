@@ -1,0 +1,50 @@
+# Temporary config for fetching NAS100, JPN225, UK100 history.
+# Currency conversions: NAS100 is USD, JPN225 is JPY (USDJPY handled),
+# UK100 is GBP (EURUSD + EURGBP handled).
+timeframe: D1
+bars_per_year: 256
+
+instruments:
+  EURGBP:
+    ctrader_symbol: EURGBP
+    description: Euro / British Pound
+    asset_type: currency
+    currency: GBP
+    traded: false
+    weight: 0.0
+    pointsize: 100000.0
+    spread_cost: 0.00008
+    lot_step: 0.01
+
+  NAS100:
+    ctrader_symbol: NAS100
+    description: Nasdaq 100 Index
+    asset_type: index
+    currency: USD
+    traded: true
+    weight: 0.1
+    pointsize: 1.0
+    spread_cost: 1.5
+    lot_step: 0.1
+
+  JPN225:
+    ctrader_symbol: JPN225
+    description: Nikkei 225 Index
+    asset_type: index
+    currency: JPY
+    traded: true
+    weight: 0.1
+    pointsize: 1.0
+    spread_cost: 10.0
+    lot_step: 1.0
+
+  UK100:
+    ctrader_symbol: UK100
+    description: FTSE 100 Index
+    asset_type: index
+    currency: GBP
+    traded: true
+    weight: 0.1
+    pointsize: 1.0
+    spread_cost: 1.0
+    lot_step: 0.1
