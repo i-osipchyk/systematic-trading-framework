@@ -43,7 +43,13 @@ from src.data.pst_writer import (
 )
 from src.data.yf_loader import fetch_yfinance
 from src.data.quandl_loader import fetch_quandl
-from src.data.fred_loader import fetch_bond_price, fetch_fred_price, splice_series
+from src.data.fred_loader import (
+    fetch_bond_price,
+    fetch_fred_price,
+    fetch_fred_fx,
+    fetch_datahub_gold,
+    splice_series,
+)
 
 UNIVERSE_CONFIG = ROOT / "config" / "universe_40yr.yaml"
 TIMEFRAME = "D1"  # universe is daily; always write to the D1 data directory
@@ -150,9 +156,9 @@ def fetch_instrument(
         else:
             print("no data")
 
-    # 3b. FRED — commodity spot price (splice with futures where they overlap)
+    # 3b. FRED — commodity spot / monthly price (splice with futures at overlap)
     if cfg.get("fred_price"):
-        print(f"  [fred] spot price ({cfg['fred_price']}) ... ", end="", flush=True)
+        print(f"  [fred] price ({cfg['fred_price']}) ... ", end="", flush=True)
         raw = fetch_fred_price(cfg["fred_price"], start=start)
         if not raw.empty and "CLOSE" in raw.columns:
             fred_df = raw[["DATETIME", "CLOSE"]]
@@ -161,6 +167,36 @@ def fetch_instrument(
                 best = fred_df
             else:
                 best = splice_series(early=fred_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
+
+    # 3c. FRED — FX spot rates (daily from 1971, splice with yfinance / cTrader)
+    if cfg.get("fred_fx"):
+        print(f"  [fred] FX ({cfg['fred_fx']}) ... ", end="", flush=True)
+        raw = fetch_fred_fx(cfg["fred_fx"], start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            fred_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(fred_df))
+            if best is None:
+                best = fred_df
+            else:
+                best = splice_series(early=fred_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
+
+    # 3d. Datahub.io — gold monthly from 1833, splice with GC=F at 2000
+    if cfg.get("datahub_gold"):
+        print(f"  [datahub] gold monthly ... ", end="", flush=True)
+        raw = fetch_datahub_gold(start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            dh_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(dh_df))
+            if best is None:
+                best = dh_df
+            else:
+                best = splice_series(early=dh_df, late=best)
                 print(f"  [splice] combined: {_report(best)}")
         else:
             print("no data")
