@@ -1,12 +1,12 @@
 """
-Phase 4 — Cost filtering: empirical IS turnover and standardised cost ceiling.
+Step 3c: Cost filtering — empirical IS turnover and standardised cost ceiling.
 
 Measures roundtrips/year per rule (pooled across instruments) and per
 instrument (combined forecast). Prints the 0.13/turnover cost ceiling so
 rule-instrument combinations that exceed it can be flagged for exclusion.
 
 Usage:
-    uv run python calibrate/04_turnover.py
+    uv run python calibrate/step3c_cost_filter.py
 """
 from __future__ import annotations
 
@@ -43,9 +43,9 @@ def _roundtrips_per_year(positions: pd.Series) -> float:
 
 
 def main(state_dir=None, split_date=None) -> None:
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
+    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
@@ -161,7 +161,7 @@ def main(state_dir=None, split_date=None) -> None:
         if total_w > 0 else 0.0
     )
 
-    st.save("04_turnover.yaml", {
+    st.save("step3c_turnover.yaml", {
         "rules": {k: round(v, 2) for k, v in pooled_rule_turnovers.items()},
         "instruments": {k: round(v, 2) for k, v in instrument_turnovers.items()},
         "weighted_avg": round(weighted_avg, 2),

@@ -1,12 +1,12 @@
 """
-Step 06: Generate / validate instrument weights — two-pass hierarchical.
+Step 4a: Generate / validate instrument weights — two-pass hierarchical.
 
-Pass 1: User sets group-level weights (06_group_weights.yaml).
+Pass 1: User sets group-level weights (step4a_group_weights.yaml).
 Pass 2: Individual instrument weights are auto-derived and presented for
-        final confirmation (06_instrument_weights.yaml).
+        final confirmation (step4a_instrument_weights.yaml).
 
 Usage:
-    uv run python calibrate/06_instrument_weights.py
+    uv run python calibrate/step4a_instrument_weights.py
 """
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from src.backtest.config import load_instrument_configs, traded_instruments
 from src.calibration import state as st
 
-GROUP_FILENAME = "06_group_weights.yaml"
-FILENAME = "06_instrument_weights.yaml"
+GROUP_FILENAME = "step4a_group_weights.yaml"
+FILENAME = "step4a_instrument_weights.yaml"
 SUM_TOL = 0.005
 
 

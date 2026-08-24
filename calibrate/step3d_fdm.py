@@ -1,11 +1,11 @@
 """
-Step 03: Compute per-instrument FDM from IS forecast correlations.
+Step 3d: Compute per-instrument FDM from IS forecast correlations.
 
-Uses the calibrated scalars (step 01) and forecast weights (step 02) to
+Uses the calibrated scalars (step 3a) and forecast weights (step 3d) to
 compute each instrument's Forecast Diversification Multiplier on IS data.
 
 Usage:
-    uv run python calibrate/03_fdm.py
+    uv run python calibrate/step3d_fdm.py
 """
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ from src.rules.vol import daily_vol
 
 
 def main(state_dir=None, split_date=None) -> None:
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
@@ -64,7 +64,7 @@ def main(state_dir=None, split_date=None) -> None:
         fdm = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
         fdms[code] = fdm
 
-    st.save("03_fdm.yaml", {code: round(fdm, 4) for code, fdm in fdms.items()}, state_dir=state_dir)
+    st.save("step3d_fdm.yaml", {code: round(fdm, 4) for code, fdm in fdms.items()}, state_dir=state_dir)
 
     print(f"  {'Instrument':<14} {'FDM':>6}")
     print(f"  {'─' * 22}")

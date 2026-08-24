@@ -1,12 +1,12 @@
 """
-Step 02: Generate / validate forecast weights — two-pass hierarchical.
+Step 3d: Generate / validate forecast weights — two-pass hierarchical.
 
-Pass 1: User sets family-level weights (02_family_weights.yaml).
+Pass 1: User sets family-level weights (step3d_family_weights.yaml).
 Pass 2: Individual rule weights are auto-derived and presented for
-        final confirmation (02_forecast_weights.yaml).
+        final confirmation (step3d_forecast_weights.yaml).
 
 Usage:
-    uv run python calibrate/02_forecast_weights.py
+    uv run python calibrate/step3d_forecast_weights.py
 """
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from src.backtest.config import load_rules_config
 from src.calibration import state as st
 
-FAMILY_FILENAME = "02_family_weights.yaml"
-FILENAME = "02_forecast_weights.yaml"
+FAMILY_FILENAME = "step3d_family_weights.yaml"
+FILENAME = "step3d_forecast_weights.yaml"
 SUM_TOL = 0.005
 
 
@@ -161,7 +161,7 @@ def _validate_individual_weights(rule_names: list[str], data: dict) -> list[str]
 
 def main(state_dir=None) -> None:
     # ── Load state ─────────────────────────────────────────────────────────────
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
     rules_cfg = load_rules_config()
     family_to_rules = _build_family_to_rules(scalars_data, rules_cfg)
     all_rule_names = [r for rules in family_to_rules.values() for r in rules]

@@ -1,12 +1,12 @@
 """
-Validation analysis: IS vs Val (2010-2017) SR breakdown by instrument, asset class, and rule.
+OOS validation: IS vs Val (2010-2017) SR breakdown by instrument, asset class, and rule.
 
 For each rule: computes isolated single-rule portfolio SR (one rule at a time, 100% weight,
 no FDM, IDM kept so leverage is comparable across rules).
 For asset classes: aggregates per-instrument PnL by group.
 
 Usage:
-    TRADING_CONFIG=config/universe_40yr_wf.yaml uv run python calibrate/09_validation_analysis.py
+    TRADING_CONFIG=config/universe_40yr_wf.yaml uv run python calibrate/oos_validation.py
 """
 from __future__ import annotations
 
@@ -62,10 +62,10 @@ def _ret(pnl: pd.Series, capital: float = CAPITAL) -> float:
 
 
 def main() -> None:
-    scalars_data  = st.load("01_scalars.yaml")
-    weights_data  = st.load("02_forecast_weights.yaml")
-    fdm_data      = st.load("03_fdm.yaml")
-    inst_wts_data = st.load("06_instrument_weights.yaml")
+    scalars_data  = st.load("step3a_scalars.yaml")
+    weights_data  = st.load("step3d_forecast_weights.yaml")
+    fdm_data      = st.load("step3d_fdm.yaml")
+    inst_wts_data = st.load("step4a_instrument_weights.yaml")
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {

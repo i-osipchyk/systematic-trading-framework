@@ -38,22 +38,23 @@ STEP_LINE = "─" * 60
 @dataclass
 class Step:
     number: int
-    module: str        # e.g. 'calibrate.01_scale_forecasts'
+    module: str        # e.g. 'calibrate.step3a_scalars'
     output_file: str   # e.g. '01_scalars.yaml'
     requires_user: bool
     description: str
 
 
 STEPS: list[Step] = [
-    Step(0,  "calibrate.00_fetch_data",         None,                        False, "Fetch / update market data"),
-    Step(1,  "calibrate.01_scale_forecasts",    "01_scalars.yaml",           False, "Compute rule scalars"),
-    Step(2,  "calibrate.02_forecast_weights",   "02_forecast_weights.yaml",  True,  "Set forecast weights"),
-    Step(3,  "calibrate.03_fdm",                "03_fdm.yaml",               False, "Compute per-instrument FDM"),
-    Step(4,  "calibrate.04_turnover",           "04_turnover.yaml",          False, "Measure IS turnover"),
-    Step(5,  "calibrate.05_vol_target",         "05_vol_target.yaml",        True,  "Kelly analysis & vol target"),
-    Step(6,  "calibrate.06_instrument_weights", "06_instrument_weights.yaml",True,  "Set instrument weights"),
-    Step(7,  "calibrate.07_idm",                "07_idm.yaml",               False, "Compute IDM"),
-    Step(8,  "calibrate.08_backtest",           None,                        False, "Full IS+OOS backtest"),
+    Step(0, "calibrate.step0_fetch_data",            None,                             False, "Fetch / update market data"),
+    Step(1, "calibrate.step3a_scalars",              "step3a_scalars.yaml",            False, "Step 3a — Compute rule scalars"),
+    Step(2, "calibrate.step3b_rule_correlations",    None,                             False, "Step 3b — Rule correlation matrix (informational)"),
+    Step(3, "calibrate.step3c_cost_filter",          "step3c_turnover.yaml",           False, "Step 3c — Cost filter (turnover per rule-instrument)"),
+    Step(4, "calibrate.step3d_forecast_weights",     "step3d_forecast_weights.yaml",   True,  "Step 3d — Set forecast weights"),
+    Step(5, "calibrate.step3d_fdm",                  "step3d_fdm.yaml",                False, "Step 3d — Compute per-instrument FDM"),
+    Step(6, "calibrate.step4a_instrument_weights",   "step4a_instrument_weights.yaml", True,  "Step 4  — Set instrument weights"),
+    Step(7, "calibrate.step4b_idm",                  "step4b_idm.yaml",                False, "Step 4  — Compute IDM"),
+    Step(8, "calibrate.step5a_vol_target",           "step5_vol_target.yaml",          True,  "Step 5  — Kelly analysis & vol target"),
+    Step(9, "calibrate.step5b_backtest",             None,                             False, "Step 5  — Full IS+OOS backtest"),
 ]
 
 

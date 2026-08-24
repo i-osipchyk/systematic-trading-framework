@@ -228,41 +228,38 @@ def _run_user_setup(setup_dir: Path) -> None:
     print(f"  Walk-forward setup: structural parameters (collected once)")
     print(f"  {STEP_LINE}\n")
 
-    step01 = _import_step("calibrate.01_scale_forecasts")
-    step02 = _import_step("calibrate.02_forecast_weights")
-    step03 = _import_step("calibrate.03_fdm")
-    step04 = _import_step("calibrate.04_turnover")
-    step06 = _import_step("calibrate.06_instrument_weights")
-    step07 = _import_step("calibrate.07_idm")
+    step01 = _import_step("calibrate.step3a_scalars")
+    step02 = _import_step("calibrate.step3d_forecast_weights")
+    step03 = _import_step("calibrate.step3d_fdm")
+    step04 = _import_step("calibrate.step3c_cost_filter")
+    step06 = _import_step("calibrate.step4a_instrument_weights")
+    step07 = _import_step("calibrate.step4b_idm")
 
-    # ── Phase 2: Rule selection ───────────────────────────────────────────────
-    print(f"  Phase 2 — Rule selection (IS data)")
+    # ── Step 3: Rule correlations, trading speed, forecast weights ───────────
+    print(f"  Step 3 — Scalars, cost filter, forecast weights, FDM (IS data)")
     print(f"  {STEP_LINE}")
 
-    print("  Running step 01 on full IS window (rule discovery)...")
+    print("  Step 3a: Rule scalars...")
     step01.main(state_dir=setup_dir)
 
-    print(f"\n  Step 02: Forecast weights")
+    print(f"\n  Step 3c: Turnover and standardised cost ceiling")
+    step04.main(state_dir=setup_dir)
+
+    print(f"\n  Step 3d: Forecast weights")
     step02.main(state_dir=setup_dir)
 
-    print(f"\n  Step 03: FDM (initial, full IS window)")
+    print(f"\n  Step 3d: FDM (initial, full IS window)")
     step03.main(state_dir=setup_dir)
 
-    # ── Phase 3: Instrument weights ───────────────────────────────────────────
-    print(f"\n  Phase 3 — Instrument weights (IS data)")
+    # ── Step 4: Instrument weights ────────────────────────────────────────────
+    print(f"\n  Step 4 — Instrument weights, IDM (IS data)")
     print(f"  {STEP_LINE}")
 
-    print(f"  Step 06: Instrument weights")
+    print(f"  Step 4a: Instrument weights")
     step06.main(state_dir=setup_dir)
 
-    print(f"\n  Step 07: IDM (initial, full IS window)")
+    print(f"\n  Step 4b: IDM (initial, full IS window)")
     step07.main(state_dir=setup_dir)
-
-    # ── Phase 4: Cost filtering ───────────────────────────────────────────────
-    print(f"\n  Phase 4 — Cost filtering")
-    print(f"  {STEP_LINE}")
-    print(f"  Step 04: Turnover and standardised cost ceiling")
-    step04.main(state_dir=setup_dir)
 
     print(f"\n  Setup complete. Parameters saved to {setup_dir}/\n")
 
@@ -282,15 +279,15 @@ def _run_fold(
 
     # Copy locked structural params from setup
     for fname in [
-        "02_family_weights.yaml", "02_forecast_weights.yaml",
-        "06_group_weights.yaml", "06_instrument_weights.yaml",
+        "step3d_family_weights.yaml", "step3d_forecast_weights.yaml",
+        "step4a_group_weights.yaml", "step4a_instrument_weights.yaml",
     ]:
         src = setup_dir / fname
         if src.exists():
             shutil.copy2(src, fold_dir / fname)
 
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=fold_dir)
-    inst_weights_data = st.load("06_instrument_weights.yaml", state_dir=fold_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=fold_dir)
+    inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=fold_dir)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
@@ -303,27 +300,27 @@ def _run_fold(
 
     # Phase 2: rule scalars and FDM (re-calibrated on this fold's IS window)
     print(f"    [P2] Rule scalars...", end="", flush=True)
-    step01 = _import_step("calibrate.01_scale_forecasts")
+    step01 = _import_step("calibrate.step3a_scalars")
     with ctx():
         step01.main(state_dir=fold_dir, split_date=is_end)
-    scalars_data = st.load("01_scalars.yaml", state_dir=fold_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=fold_dir)
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     print(" done")
 
     print(f"    [P2] FDM...", end="", flush=True)
-    step03 = _import_step("calibrate.03_fdm")
+    step03 = _import_step("calibrate.step3d_fdm")
     with ctx():
         step03.main(state_dir=fold_dir, split_date=is_end)
-    fdm_data = st.load("03_fdm.yaml", state_dir=fold_dir)
+    fdm_data = st.load("step3d_fdm.yaml", state_dir=fold_dir)
     calibrated_fdms = {k: float(v) for k, v in fdm_data.items()}
     print(" done")
 
     # Phase 3: IDM (re-calibrated on this fold's IS window)
     print(f"    [P3] IDM...", end="", flush=True)
-    step07 = _import_step("calibrate.07_idm")
+    step07 = _import_step("calibrate.step4b_idm")
     with ctx():
         step07.main(state_dir=fold_dir, split_date=is_end)
-    idm_data = st.load("07_idm.yaml", state_dir=fold_dir)
+    idm_data = st.load("step4b_idm.yaml", state_dir=fold_dir)
     calibrated_idm = float(idm_data["idm"])
     print(f" {calibrated_idm:.3f}")
 
@@ -335,7 +332,7 @@ def _run_fold(
     )
     floor_msg = " [floor]" if is_sharpe <= 0 else ""
     print(f" IS SR={is_sharpe:.2f}  vol_target={vol_target:.0%}{floor_msg}")
-    st.save("05_vol_target.yaml", {
+    st.save("step5_vol_target.yaml", {
         "vol_target": round(vol_target, 4),
         "is_sharpe": round(is_sharpe, 4),
     }, state_dir=fold_dir)
@@ -523,9 +520,9 @@ def main() -> None:
 
     # User setup (once; skipped if already done)
     setup_complete = (
-        (setup_dir / "02_forecast_weights.yaml").exists() and
-        (setup_dir / "06_instrument_weights.yaml").exists() and
-        (setup_dir / "04_turnover.yaml").exists()
+        (setup_dir / "step3d_forecast_weights.yaml").exists() and
+        (setup_dir / "step4a_instrument_weights.yaml").exists() and
+        (setup_dir / "step3c_turnover.yaml").exists()
     )
     if not setup_complete:
         _run_user_setup(setup_dir)

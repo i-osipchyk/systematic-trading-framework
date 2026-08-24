@@ -1,11 +1,11 @@
 """
-Step 07: Compute IDM from IS instrument return correlations.
+Step 4b: Compute IDM from IS instrument return correlations.
 
 Runs IS-only portfolio with calibrated parameters (IDM=1.0), builds the
 return correlation matrix, then derives IDM = 1/sqrt(w'Cw).
 
 Usage:
-    uv run python calibrate/07_idm.py
+    uv run python calibrate/step4b_idm.py
 """
 from __future__ import annotations
 
@@ -32,11 +32,11 @@ from src.rules.vol import daily_vol
 
 def main(state_dir=None, split_date=None) -> None:
     # Load all state
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
-    vol_target_data = st.load("05_vol_target.yaml", state_dir=state_dir)
-    inst_weights_data = st.load("06_instrument_weights.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
+    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
+    vol_target_data = st.load("step5_vol_target.yaml", state_dir=state_dir)
+    inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
@@ -146,7 +146,7 @@ def main(state_dir=None, split_date=None) -> None:
         print(f"  IDM (after cap) = {idm:.3f}")
 
     # Save state
-    st.save("07_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)
+    st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)
     print(f"\n  Saved → {st.path('07_idm.yaml', state_dir=state_dir)}")
 
 

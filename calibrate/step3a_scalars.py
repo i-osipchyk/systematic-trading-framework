@@ -1,11 +1,11 @@
 """
-Step 01: Compute IS-calibrated scalars for all rules.
+Step 3a: Compute IS-calibrated scalars for all rules.
 
 For each rule, finds the scalar such that mean absolute forecast = 10
 when computed on the IS data, pooled across all instruments.
 
 Usage:
-    uv run python calibrate/01_scale_forecasts.py
+    uv run python calibrate/step3a_scalars.py
 """
 from __future__ import annotations
 
@@ -102,7 +102,7 @@ def main(state_dir=None, split_date=None) -> None:
             scalars_out["seasonality"] = seasonal_models
             print(f"\n  Seasonality: fitted for {list(seasonal_models.keys())}")
 
-    st.save("01_scalars.yaml", scalars_out, state_dir=state_dir)
+    st.save("step3a_scalars.yaml", scalars_out, state_dir=state_dir)
 
     print()
     if rows:

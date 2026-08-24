@@ -1,12 +1,12 @@
 """
-Step 05: Kelly analysis → user confirms vol target.
+Step 5a: Kelly analysis → user confirms vol target.
 
 Runs IS-only portfolio backtest with calibrated scalars and FDMs,
 computes Sharpe, applies Kelly criterion, then asks user to confirm a
 volatility target.
 
 Usage:
-    uv run python calibrate/05_vol_target.py
+    uv run python calibrate/step5a_vol_target.py
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from src.rules.combine import combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
-FILENAME = "05_vol_target.yaml"
+FILENAME = "step5_vol_target.yaml"
 FIXED_VOL_FOR_MEASUREMENT = 0.20
 
 
@@ -102,9 +102,9 @@ def _run_is_portfolio(
 
 
 def main(state_dir=None) -> None:
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
+    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {

@@ -1,7 +1,7 @@
 """
-Step 3 helper — IS rule forecast correlation matrix and handcrafted weights.
+Step 3b: IS rule forecast correlation matrix and handcrafted weights.
 
-Loads calibrated scalars (step 01), computes each rule's IS forecast for every
+Loads calibrated scalars (step 3a), computes each rule's IS forecast for every
 instrument, then outputs:
   - Pairwise rule correlation matrix (pooled across instruments)
   - Suggested handcrafted forecast weights from Carver's hierarchy
@@ -11,7 +11,7 @@ rule's correlation computation so constant series don't inflate diversification
 estimates.
 
 Usage:
-    uv run python calibrate/05_rule_correlations.py
+    uv run python calibrate/step3b_rule_correlations.py
 """
 from __future__ import annotations
 
@@ -181,7 +181,7 @@ def _suggest_weight_adjustment(
 
 
 def main(state_dir=None) -> None:
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
 
     cfgs = load_instrument_configs()

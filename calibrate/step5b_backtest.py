@@ -1,11 +1,11 @@
 """
-Step 08: Full IS+OOS backtest with all calibrated parameters.
+Step 5b: Full IS+OOS backtest with all calibrated parameters.
 
 Loads all state files, applies calibrated instrument weights, then runs the
 two-pass portfolio backtest skipping pass 1 (FDMs and IDM already known).
 
 Usage:
-    uv run python calibrate/08_backtest.py
+    uv run python calibrate/step5b_backtest.py
 """
 from __future__ import annotations
 
@@ -25,12 +25,12 @@ from src.rules.registry import REGISTRY
 
 
 def main(state_dir=None) -> None:
-    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("02_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("03_fdm.yaml", state_dir=state_dir)
-    vol_target_data = st.load("05_vol_target.yaml", state_dir=state_dir)
-    inst_weights_data = st.load("06_instrument_weights.yaml", state_dir=state_dir)
-    idm_data = st.load("07_idm.yaml", state_dir=state_dir)
+    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
+    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
+    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
+    vol_target_data = st.load("step5_vol_target.yaml", state_dir=state_dir)
+    inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
+    idm_data = st.load("step4b_idm.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
