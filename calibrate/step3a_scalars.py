@@ -112,7 +112,7 @@ def main(state_dir=None, split_date=None) -> None:
         for rule, maf, scalar in rows:
             print(f"  {rule:<{col_w}} {maf:>9.3f}  {scalar:>8.2f}")
 
-    print(f"\n  Saved → {st.path('01_scalars.yaml', state_dir=state_dir)}")
+    print(f"\n  Saved → {st.path('step3a_scalars.yaml', state_dir=state_dir)}")
 
 
 if __name__ == "__main__":

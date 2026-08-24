@@ -72,7 +72,7 @@ def main(state_dir=None, split_date=None) -> None:
         print(f"  {code:<14} {fdm:>6.3f}")
 
     print()
-    print(f"\n  Saved → {st.path('03_fdm.yaml', state_dir=state_dir)}")
+    print(f"\n  Saved → {st.path('step3d_fdm.yaml', state_dir=state_dir)}")
 
 
 if __name__ == "__main__":

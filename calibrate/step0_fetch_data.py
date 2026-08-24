@@ -12,8 +12,8 @@ Uses a subprocess to invoke fetch_history.py so the Twisted reactor can
 be started fresh for each fetch batch.
 
 Usage:
-    uv run python calibrate/00_fetch_data.py
-    uv run python calibrate/00_fetch_data.py --demo
+    uv run python calibrate/step0_fetch_data.py
+    uv run python calibrate/step0_fetch_data.py --demo
 """
 from __future__ import annotations
 

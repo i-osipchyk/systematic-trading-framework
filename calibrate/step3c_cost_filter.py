@@ -184,7 +184,7 @@ def main(state_dir=None, split_date=None) -> None:
 
     print()
     print(f"  Portfolio weighted avg turnover: {weighted_avg:.1f} RT/yr")
-    print(f"\n  Saved → {st.path('04_turnover.yaml', state_dir=state_dir)}")
+    print(f"\n  Saved → {st.path('step3c_turnover.yaml', state_dir=state_dir)}")
 
 
 if __name__ == "__main__":

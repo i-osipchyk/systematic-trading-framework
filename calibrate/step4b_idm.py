@@ -147,7 +147,7 @@ def main(state_dir=None, split_date=None) -> None:
 
     # Save state
     st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)
-    print(f"\n  Saved → {st.path('07_idm.yaml', state_dir=state_dir)}")
+    print(f"\n  Saved → {st.path('step4b_idm.yaml', state_dir=state_dir)}")
 
 
 if __name__ == "__main__":
