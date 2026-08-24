@@ -55,13 +55,14 @@ def main(state_dir=None, split_date=None) -> None:
 
     fx_helper_codes = required_fx_helpers(cfgs)
     fx_prices_map = {code: load_adjusted_prices(code) for code in fx_helper_codes}
-    # USDJPY is traded (not in fx_helpers) but still needed for JPY→USD conversion
-    for _fx in ("EURUSD", "EURGBP", "USDJPY"):
+    # Some FX instruments are traded (not in fx_helpers) but still needed for conversion
+    for _fx in ("EURUSD", "EURGBP", "USDJPY", "USDCAD"):
         if _fx in instruments and _fx not in fx_prices_map:
             fx_prices_map[_fx] = load_adjusted_prices(_fx)
     eurusd = fx_prices_map.get("EURUSD", pd.Series(dtype=float))
     eurgbp = fx_prices_map.get("EURGBP", pd.Series(dtype=float))
     usdjpy = fx_prices_map.get("USDJPY", pd.Series(dtype=float))
+    usdcad = fx_prices_map.get("USDCAD", pd.Series(dtype=float))
 
     print(f"  Split date: {split_date.date()}")
     print(f"  Vol target: {vol_target:.0%}\n")
@@ -80,6 +81,8 @@ def main(state_dir=None, split_date=None) -> None:
             continue
 
         is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) < 20:
+            continue
         vol_is = daily_vol(is_prices)
         cfg = cfgs[code]
         fdm = float(fdm_data.get(code, 1.0))
@@ -92,7 +95,7 @@ def main(state_dir=None, split_date=None) -> None:
             instrument_code=code,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
-                             usdjpy_prices=usdjpy)
+                             usdjpy_prices=usdjpy, usdcad_prices=usdcad)
 
         pos = compute_positions(
             prices=is_prices, vol=vol_is, forecast=fc_is["combined"],
@@ -102,8 +105,8 @@ def main(state_dir=None, split_date=None) -> None:
         )
         gpnl = gross_pnl(pos, is_prices, cfg.pointsize)
         costs = transaction_costs(pos, cfg.spread_cost, cfg.pointsize)
-        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy)
-        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy)
+        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy, usdcad_prices=usdcad)
+        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy, usdcad_prices=usdcad)
         net = gpnl_usd - costs_usd
         is_pnl_per_instrument[code] = net / capital
 

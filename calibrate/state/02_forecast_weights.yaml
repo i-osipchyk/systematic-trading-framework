@@ -1,22 +1,18 @@
 # Forecast combination weights
 # ─────────────────────────────────────────────────────────────────
-# Edit the weight for each rule below, then save this file and
-# press Enter in the terminal to continue.
+# Derived via Carver handcrafting from IS rule forecast correlations.
+# Revised after validation analysis (2010–2017):
+#   - BREAKOUT_20 removed: IS 1.39 → Val -0.54; highest turnover (46 RT/yr)
+#   - Fast sub-family collapsed: EWMAC_8_32 now sole fast trend rule
 #
-# Constraints:
-#   - All weights must be >= 0
-#   - Weights must sum to 1.0 (tolerance ±0.005)
-#
-# Current template uses equal weights across all rules.
-# You may want to assign more weight to rules you trust more,
-# e.g. giving the trend family more weight than mean reversion.
+# Family structure:
+#   Trend (50%): EWMAC_8_32 + EWMAC_32_128 + EWMAC_64_256 (equal thirds)
+#   Carry (25%): FX (1) + bond (4) instruments
+#   Seasonality (25%): energy (1) + ag (4) instruments
 #
 forecast_weights:
-  EWMAC_2_8: 0.125
-  EWMAC_4_16: 0.125
-  EWMAC_8_32: 0.125
-  EWMAC_16_64: 0.125
-  EWMAC_32_128: 0.125
-  EWMAC_64_256: 0.125
-  MR_16: 0.125
-  MR_200: 0.125
+  EWMAC_8_32:    0.1667
+  EWMAC_32_128:  0.1667
+  EWMAC_64_256:  0.1666
+  CARRY:         0.2500
+  SEASONALITY:   0.2500

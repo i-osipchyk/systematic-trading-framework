@@ -44,6 +44,11 @@ _FX_SERIES = {
     "EURUSD": ("DEXUSEU", False),  # USD per EUR  → EURUSD direct, from 1999
 }
 
+# DEM/USD series for EURUSD proxy pre-1999
+# EXGEUS: German Marks per USD, monthly from 1971; 1 EUR ≡ 1.95583 DEM (fixed at euro launch)
+_DEM_PER_USD_SERIES = "EXGEUS"
+_DEM_PER_EUR = 1.95583  # fixed conversion rate from 1999-01-01
+
 # Commodity spot prices
 # (series_id, is_monthly)
 _COMMODITY_SERIES: dict[str, tuple[str, bool]] = {
@@ -175,7 +180,8 @@ def fetch_ecb_bund_price(start: str = "1984-01-01") -> pd.DataFrame:
 def fetch_fred_fx(instrument: str, start: str = "1984-01-01") -> pd.DataFrame:
     """Fetch daily FX spot rates from FRED.
 
-    Available instruments: AUDUSD (1971), USDCAD (1971), USDJPY (1971), GBPUSD (1971), EURUSD (1999).
+    Available instruments: AUDUSD (1971), USDCAD (1971), USDJPY (1971), GBPUSD (1971).
+    EURUSD: spliced from DEM proxy (DEXGEUS, 1971) before 1999 and DEXUSEU from 1999.
     """
     if instrument not in _FX_SERIES:
         raise ValueError(f"No FRED FX series for {instrument}. Available: {list(_FX_SERIES)}")
@@ -189,6 +195,19 @@ def fetch_fred_fx(instrument: str, start: str = "1984-01-01") -> pd.DataFrame:
 
     if invert:
         series = 1.0 / series
+
+    # For EURUSD, prepend DEM/USD proxy for dates before 1999
+    if instrument == "EURUSD" and pd.Timestamp(start) < pd.Timestamp("1999-01-01"):
+        try:
+            dem_per_usd = _fetch_fred(_DEM_PER_USD_SERIES)
+            # Convert DEM/USD → USD/EUR: USD per DEM = 1/dem_per_usd; DEM per EUR = _DEM_PER_EUR
+            eur_usd_proxy = _DEM_PER_EUR / dem_per_usd
+            # Use proxy only before first date in the EUR series
+            cut = series.index[0] if not series.empty else pd.Timestamp("1999-01-01")
+            proxy_pre = eur_usd_proxy[eur_usd_proxy.index < cut]
+            series = pd.concat([proxy_pre, series]).sort_index()
+        except Exception as e:
+            print(f"  [fred] WARNING: could not fetch DEM proxy for EURUSD: {e}")
 
     return _to_ohlcv(series, start=start)
 

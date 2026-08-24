@@ -54,7 +54,7 @@ from src.data.fred_loader import (
     splice_series,
 )
 
-UNIVERSE_CONFIG = ROOT / "config" / "universe_40yr.yaml"
+UNIVERSE_CONFIG = ROOT / "config" / "universe_40yr_wf.yaml"
 TIMEFRAME = "D1"  # universe is daily; always write to the D1 data directory
 
 

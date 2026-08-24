@@ -1,0 +1,261 @@
+"""
+Step 3 helper — IS rule forecast correlation matrix and handcrafted weights.
+
+Loads calibrated scalars (step 01), computes each rule's IS forecast for every
+instrument, then outputs:
+  - Pairwise rule correlation matrix (pooled across instruments)
+  - Suggested handcrafted forecast weights from Carver's hierarchy
+
+Instruments where a rule returns a flat (zero) signal are excluded from that
+rule's correlation computation so constant series don't inflate diversification
+estimates.
+
+Usage:
+    uv run python calibrate/05_rule_correlations.py
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
+
+from src.backtest.config import load_instrument_configs, traded_instruments
+from src.calibration import state as st
+from src.data.pst_writer import load_adjusted_prices
+from src.data.splits import compute_split_date, split_series
+from src.rules.combine import combined_forecast
+from src.rules.registry import REGISTRY
+from src.rules.vol import daily_vol
+
+# ── Family structure for handcrafting ────────────────────────────────────────
+# Each entry: (family_name, [list of sub-families])
+# A sub-family is a list of rule names that are grouped together before being
+# combined with siblings.  Equal weight is assumed at every level.
+#
+# Trend family has two sub-families: EWMACs (fast-biased internally) + BREAKOUT.
+# The EWMAC sub-family itself has two layers: fast (8_32) and slow pair (32_128,
+# 64_256), reflecting the higher 32_128/64_256 correlation (~0.55 vs ~0.40).
+#
+# Carry and Seasonality are each single-rule families.
+#
+# Family-level weights: Trend 50%, Carry 25%, Seasonality 25%.
+# Adjust FAMILY_WEIGHTS if the IS correlation data suggests a different split.
+
+FAMILY_WEIGHTS: dict[str, float] = {
+    "Trend": 0.50,
+    "Carry": 0.25,
+    "Seasonality": 0.25,
+}
+
+# Hierarchical structure within each family.
+# Each list element is a "sub-family" — rules within it get equal weight at
+# that level.  Single-element lists mean the rule has no siblings.
+FAMILY_STRUCTURE: dict[str, list[list[str]]] = {
+    "Trend": [
+        # Fast sub-family: EWMAC_8_32 + BREAKOUT_20 (IS corr 0.731 — same time horizon)
+        ["EWMAC_8_32", "BREAKOUT_20"],
+        # Slow sub-family: EWMAC_32_128 + EWMAC_64_256 (IS corr 0.872 — nearly identical)
+        ["EWMAC_32_128", "EWMAC_64_256"],
+    ],
+    "Carry": [["CARRY"]],
+    "Seasonality": [["SEASONALITY"]],
+}
+
+# Within-family weights: equal split between fast and slow sub-families
+SUBFAM_WEIGHTS: dict[str, list[float]] = {
+    "Trend": [0.50, 0.50],  # fast sub-family, slow sub-family
+    "Carry": [1.0],
+    "Seasonality": [1.0],
+}
+
+
+def _handcraft_weights() -> dict[str, float]:
+    """Derive forecast weights from the family hierarchy (no correlation data needed).
+
+    Returns a dict mapping rule_name → weight (sums to 1.0).
+    """
+    weights: dict[str, float] = {}
+    for fam_name, fam_w in FAMILY_WEIGHTS.items():
+        sub_families = FAMILY_STRUCTURE[fam_name]
+        sub_fam_ws = SUBFAM_WEIGHTS[fam_name]
+        for sub_fam, sub_w in zip(sub_families, sub_fam_ws):
+            rule_w = fam_w * sub_w / len(sub_fam)
+            for rule in sub_fam:
+                weights[rule] = rule_w
+    return weights
+
+
+def _pooled_correlation(
+    forecasts_by_instrument: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """Average pairwise correlations across instruments.
+
+    For each instrument, we compute the rule-rule correlation matrix using only
+    the rows and columns that have non-zero variance (active rules).  We then
+    average across instruments, counting only instruments where both rules of a
+    pair are active.
+    """
+    # Collect all rule names
+    all_rules: list[str] = []
+    for fc in forecasts_by_instrument.values():
+        for col in fc.columns:
+            if col != "combined" and col not in all_rules:
+                all_rules.append(col)
+
+    n = len(all_rules)
+    sum_corr = np.zeros((n, n))
+    count = np.zeros((n, n))
+    idx = {r: i for i, r in enumerate(all_rules)}
+
+    for fc in forecasts_by_instrument.values():
+        rule_cols = [c for c in fc.columns if c != "combined"]
+        clean = fc[rule_cols].dropna()
+        active = [c for c in rule_cols if clean[c].std() > 1e-6]
+        if len(active) < 2:
+            continue
+        corr = clean[active].corr()
+        for r1 in active:
+            for r2 in active:
+                i, j = idx[r1], idx[r2]
+                sum_corr[i, j] += corr.loc[r1, r2]
+                count[i, j] += 1
+
+    pooled = np.where(count > 0, sum_corr / count, np.nan)
+    return pd.DataFrame(pooled, index=all_rules, columns=all_rules)
+
+
+def _print_corr(corr: pd.DataFrame) -> None:
+    rules = list(corr.index)
+    col_w = max(len(r) for r in rules) + 2
+    header = f"  {'':>{col_w}}" + "".join(f"  {r[:8]:>8}" for r in rules)
+    print(header)
+    for r1 in rules:
+        row = f"  {r1:>{col_w}}"
+        for r2 in rules:
+            v = corr.loc[r1, r2]
+            row += f"  {v:>8.3f}" if not np.isnan(v) else f"  {'n/a':>8}"
+        print(row)
+
+
+def _suggest_weight_adjustment(
+    corr: pd.DataFrame, base_weights: dict[str, float]
+) -> dict[str, float]:
+    """Refine within-family weights using observed correlations.
+
+    For each family, we compute the average correlation of each rule with the
+    other members of its sub-family.  If a rule has noticeably higher average
+    correlation than siblings (>0.10 gap), reduce its weight proportionally.
+
+    This is a lightweight implementation of Carver's handcrafting heuristic,
+    not a full matrix inversion.  The family-level split is not changed here.
+    """
+    rules = list(corr.index)
+    adjusted = dict(base_weights)
+
+    for fam_name, sub_families in FAMILY_STRUCTURE.items():
+        sub_fam_ws = SUBFAM_WEIGHTS[fam_name]
+        fam_w = FAMILY_WEIGHTS[fam_name]
+
+        for sub_fam, sub_w in zip(sub_families, sub_fam_ws):
+            present = [r for r in sub_fam if r in rules]
+            if len(present) < 2:
+                continue
+            # Average correlation of each rule with the rest of the sub-family
+            avg_corrs = {}
+            for r in present:
+                others = [o for o in present if o != r]
+                vals = [corr.loc[r, o] for o in others if not np.isnan(corr.loc[r, o])]
+                avg_corrs[r] = float(np.mean(vals)) if vals else 0.0
+
+            # Weight inversely by (1 + avg_corr) to penalise correlated members
+            raw = {r: 1.0 / (1.0 + avg_corrs[r]) for r in present}
+            total = sum(raw.values())
+            for r in present:
+                adjusted[r] = fam_w * sub_w * raw[r] / total
+
+    return adjusted
+
+
+def main(state_dir=None) -> None:
+    scalars_data = st.load("01_scalars.yaml", state_dir=state_dir)
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
+
+    cfgs = load_instrument_configs()
+    instruments = traded_instruments(cfgs)
+    split_date = compute_split_date(instruments)
+
+    print(f"  IS window end: {split_date.date()}")
+    print(f"  Instruments: {len(instruments)}\n")
+
+    forecasts_by_instrument: dict[str, pd.DataFrame] = {}
+
+    for code in instruments:
+        try:
+            prices = load_adjusted_prices(code)
+        except FileNotFoundError:
+            continue
+        is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) < 20:
+            continue
+        vol_is = daily_vol(is_prices)
+
+        fc = combined_forecast(
+            is_prices, vol_is, fdm=1.0,
+            family_scalars=family_scalars,
+            rule_weights=None,          # equal weights — we only need individual rule cols
+            instrument_code=code,
+        )
+        forecasts_by_instrument[code] = fc
+
+    # ── Correlation matrix ────────────────────────────────────────────────────
+    corr = _pooled_correlation(forecasts_by_instrument)
+
+    print("  Pooled IS rule forecast correlation matrix")
+    print("  (averaged across instruments where both rules are active)\n")
+    _print_corr(corr)
+
+    # ── Per-rule instrument coverage ──────────────────────────────────────────
+    all_rules = [c for c in list(corr.index)]
+    print("\n  Active instrument count per rule (non-zero variance on IS data):")
+    for rule in all_rules:
+        count = sum(
+            1 for fc in forecasts_by_instrument.values()
+            if rule in fc.columns and fc[rule].std() > 1e-6
+        )
+        print(f"    {rule:<20} {count:>3} / {len(forecasts_by_instrument)}")
+
+    # ── Handcrafted weights ───────────────────────────────────────────────────
+    base_weights = _handcraft_weights()
+    adjusted_weights = _suggest_weight_adjustment(corr, base_weights)
+
+    print("\n  Suggested forecast weights:")
+    print(f"  {'Rule':<20} {'Hierarchy':>10}  {'Corr-adjusted':>14}")
+    print(f"  {'─' * 48}")
+    for rule in all_rules:
+        bw = base_weights.get(rule, 0.0)
+        aw = adjusted_weights.get(rule, 0.0)
+        print(f"  {rule:<20} {bw:>10.4f}  {aw:>14.4f}")
+    total_base = sum(base_weights.get(r, 0.0) for r in all_rules)
+    total_adj = sum(adjusted_weights.get(r, 0.0) for r in all_rules)
+    print(f"  {'─' * 48}")
+    print(f"  {'Total':<20} {total_base:>10.4f}  {total_adj:>14.4f}")
+
+    print("\n  To use these weights, create calibration/setup/02_forecast_weights.yaml:")
+    print("  forecast_weights:")
+    for rule, w in sorted(adjusted_weights.items(), key=lambda x: -x[1]):
+        print(f"    {rule}: {round(w, 4)}")
+
+    print(
+        "\n  Note: family-level weights (Trend/Carry/Seasonality) and within-trend\n"
+        "  sub-family weights (EWMAC/BREAKOUT, fast/slow) are set in this script's\n"
+        "  FAMILY_WEIGHTS / SUBFAM_WEIGHTS constants. Adjust those if the correlation\n"
+        "  matrix or IS SR analysis suggests a different split."
+    )
+
+
+if __name__ == "__main__":
+    main()

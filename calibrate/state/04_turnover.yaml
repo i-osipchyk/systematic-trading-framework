@@ -1,19 +1,34 @@
 rules:
-  EWMAC_2_8: 55.93
-  EWMAC_4_16: 29.17
-  EWMAC_8_32: 16.25
-  EWMAC_16_64: 10.81
-  EWMAC_32_128: 8.61
-  EWMAC_64_256: 7.51
-  MR_16: 54.18
-  MR_200: 16.74
+  EWMAC_8_32: 13.51
+  EWMAC_32_128: 8.37
+  EWMAC_64_256: 7.62
+  BREAKOUT_20: 46.19
+  CARRY: 3.95
+  SEASONALITY: 3.04
 instruments:
-  BTC: 16.25
-  ETH: 17.6
-  US500: 13.58
-  US30: 16.68
-  GER40: 16.22
-  XAU: 18.13
-  USOIL: 18.25
-  USDJPY: 17.32
-weighted_avg: 16.8
+  EURUSD: 18.93
+  GBPUSD: 18.96
+  AUDUSD: 15.81
+  USDJPY: 16.31
+  USDCAD: 16.0
+  US500: 16.91
+  NAS100: 19.14
+  GER40: 18.5
+  JPN225: 17.01
+  HK50: 17.34
+  US2YR: 13.56
+  US5YR: 15.39
+  US10YR: 16.62
+  US30YR: 17.67
+  BUND: 12.14
+  XAU: 11.21
+  XAG: 9.01
+  COPPER: 12.73
+  SpotCrude: 21.56
+  NatGas: 24.37
+  Coffee: 16.8
+  Cocoa: 15.17
+  Sugar: 14.4
+  Corn: 14.75
+  Cotton: 15.68
+weighted_avg: 16.24

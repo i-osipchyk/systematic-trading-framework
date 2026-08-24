@@ -49,6 +49,7 @@ def _fx_rate_to_usd(
     eurgbp_prices: pd.Series,
     index: pd.Index,
     usdjpy_prices: pd.Series | None = None,
+    usdcad_prices: pd.Series | None = None,
 ) -> pd.Series | float:
     """Return a series (or scalar) that converts 1 native-currency unit → USD."""
     if currency == "USD":
@@ -62,6 +63,12 @@ def _fx_rate_to_usd(
         if usdjpy_prices is None:
             raise ValueError("usdjpy_prices required for JPY currency")
         return (1 / usdjpy_prices).reindex(index, method="ffill").bfill()
+    if currency == "CAD":
+        if usdcad_prices is None or usdcad_prices.empty:
+            return 1.0
+        return (1 / usdcad_prices).reindex(index, method="ffill").bfill()
+    if currency == "HKD":
+        return 1.0 / 7.78
     raise ValueError(f"Unknown currency: {currency}")
 
 
@@ -77,6 +84,7 @@ def run_instrument(
     idm: float = 1.0,
     fdm: float | None = None,
     usdjpy_prices: pd.Series | None = None,
+    usdcad_prices: pd.Series | None = None,
     family_scalars: dict[str, dict] | None = None,
     rule_weights: dict[str, float] | None = None,
 ) -> InstrumentResult:
@@ -114,7 +122,7 @@ def run_instrument(
         instrument_code=code,
     )
     fx = _fx_rate_to_usd(cfg.currency, eurusd_prices, eurgbp_prices, prices.index,
-                         usdjpy_prices=usdjpy_prices)
+                         usdjpy_prices=usdjpy_prices, usdcad_prices=usdcad_prices)
 
     positions = compute_positions(
         prices=prices,
@@ -131,8 +139,10 @@ def run_instrument(
     gpnl = gross_pnl(positions, prices, cfg.pointsize)
     costs = transaction_costs(positions, cfg.spread_cost, cfg.pointsize)
 
-    gpnl_usd = to_usd(gpnl, cfg.currency, eurusd_prices, eurgbp_prices, usdjpy_prices)
-    costs_usd = to_usd(costs, cfg.currency, eurusd_prices, eurgbp_prices, usdjpy_prices)
+    gpnl_usd = to_usd(gpnl, cfg.currency, eurusd_prices, eurgbp_prices, usdjpy_prices,
+                      usdcad_prices=usdcad_prices)
+    costs_usd = to_usd(costs, cfg.currency, eurusd_prices, eurgbp_prices, usdjpy_prices,
+                       usdcad_prices=usdcad_prices)
     net_pnl_usd = (gpnl_usd - costs_usd).rename("net_pnl_usd")
 
     return InstrumentResult(
@@ -181,13 +191,21 @@ def run_portfolio(
     eurusd_prices = load_adjusted_prices("EURUSD")
     eurgbp_prices = load_adjusted_prices("EURGBP")
     usdjpy_prices = load_adjusted_prices("USDJPY")
+    try:
+        usdcad_prices = load_adjusted_prices("USDCAD")
+    except FileNotFoundError:
+        usdcad_prices = pd.Series(dtype=float)
 
     all_prices = {}
     for code in instruments:
         if code not in cfgs:
             continue
         try:
-            all_prices[code] = load_adjusted_prices(code)
+            prices = load_adjusted_prices(code)
+            is_data, _ = split_series(prices, split_date)
+            if len(is_data) < 20:
+                continue  # not enough IS data for this fold
+            all_prices[code] = prices
         except FileNotFoundError:
             print(f"  WARNING: no data for {code}, skipping.")
 
@@ -224,6 +242,7 @@ def run_portfolio(
                 idm=1.0,
                 fdm=pre_fdm,
                 usdjpy_prices=usdjpy_prices,
+                usdcad_prices=usdcad_prices,
                 family_scalars=family_scalars,
                 rule_weights=rule_weights,
             )
@@ -264,6 +283,7 @@ def run_portfolio(
             idm=idm,
             fdm=fdms.get(code),
             usdjpy_prices=usdjpy_prices,
+            usdcad_prices=usdcad_prices,
             family_scalars=family_scalars,
             rule_weights=rule_weights,
         )

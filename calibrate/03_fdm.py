@@ -49,6 +49,8 @@ def main(state_dir=None, split_date=None) -> None:
             continue
 
         is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) < 20:
+            continue
         vol_is = daily_vol(is_prices)
 
         fc_is = combined_forecast(
@@ -70,11 +72,6 @@ def main(state_dir=None, split_date=None) -> None:
         print(f"  {code:<14} {fdm:>6.3f}")
 
     print()
-    print(
-        "  Note: all instruments hitting cap (2.500) is normal when EWMAC and MR\n"
-        "        rules are used together — their structural anti-correlation requires\n"
-        "        FDM ~3.5 which exceeds the cap."
-    )
     print(f"\n  Saved → {st.path('03_fdm.yaml', state_dir=state_dir)}")
 
 

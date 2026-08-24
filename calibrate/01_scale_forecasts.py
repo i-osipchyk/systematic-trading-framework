@@ -59,6 +59,8 @@ def main(state_dir=None, split_date=None) -> None:
                 continue
 
             is_prices, _ = split_series(prices, split_date)
+            if len(is_prices) < 20:
+                continue
             vol = daily_vol(is_prices)
 
             for variant in variants:
@@ -68,7 +70,7 @@ def main(state_dir=None, split_date=None) -> None:
 
         block_scalars_native: dict = {}
         for variant in variants:
-            mafs = [m for m in maf_by_variant[variant] if not np.isnan(m)]
+            mafs = [m for m in maf_by_variant[variant] if m > 0.0 and not np.isnan(m)]
             if not mafs:
                 continue
             pooled = float(np.nanmean(mafs))
@@ -77,6 +79,28 @@ def main(state_dir=None, split_date=None) -> None:
             rows.append((handler.rule_name(variant), pooled, scalar))
 
         scalars_out[block_name] = handler.dump_scalars(block_scalars_native)
+
+    # Seasonality: per-instrument calibration (not pooled across instruments)
+    if "seasonality" in rules:
+        from src.rules.seasonality import SEASONAL_INSTRUMENTS, fit_seasonality
+        seasonal_models: dict[str, dict] = {}
+        for code in instruments:
+            if code not in SEASONAL_INSTRUMENTS:
+                continue
+            try:
+                prices = load_adjusted_prices(code)
+            except FileNotFoundError:
+                continue
+            is_prices, _ = split_series(prices, split_date)
+            if len(is_prices) < 512:
+                continue
+            month_means = fit_seasonality(is_prices)
+            seasonal_models[code] = {str(k): v for k, v in month_means.items()}
+            max_abs = max(abs(v) for v in month_means.values()) or 1.0
+            rows.append((f"SEASONALITY_{code}", round(10.0 / max_abs, 3), 1.0))
+        if seasonal_models:
+            scalars_out["seasonality"] = seasonal_models
+            print(f"\n  Seasonality: fitted for {list(seasonal_models.keys())}")
 
     st.save("01_scalars.yaml", scalars_out, state_dir=state_dir)
 

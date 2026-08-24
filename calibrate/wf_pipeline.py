@@ -161,12 +161,13 @@ def _compute_vol_target_auto(
 
     fx_helper_codes = required_fx_helpers(cfgs)
     fx_prices_map = {code: load_adjusted_prices(code) for code in fx_helper_codes}
-    for _fx in ("EURUSD", "EURGBP", "USDJPY"):
+    for _fx in ("EURUSD", "EURGBP", "USDJPY", "USDCAD"):
         if _fx in instruments and _fx not in fx_prices_map:
             fx_prices_map[_fx] = load_adjusted_prices(_fx)
     eurusd = fx_prices_map.get("EURUSD", pd.Series(dtype=float))
     eurgbp = fx_prices_map.get("EURGBP", pd.Series(dtype=float))
     usdjpy = fx_prices_map.get("USDJPY", pd.Series(dtype=float))
+    usdcad = fx_prices_map.get("USDCAD", pd.Series(dtype=float))
 
     all_pnl: dict[str, pd.Series] = {}
 
@@ -194,7 +195,7 @@ def _compute_vol_target_auto(
             instrument_code=code,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
-                             usdjpy_prices=usdjpy)
+                             usdjpy_prices=usdjpy, usdcad_prices=usdcad)
         pos = compute_positions(
             prices=is_prices, vol=vol_is, forecast=fc_is["combined"],
             pointsize=cfg.pointsize, capital=capital,
@@ -204,8 +205,8 @@ def _compute_vol_target_auto(
         )
         gpnl = gross_pnl(pos, is_prices, cfg.pointsize)
         costs = transaction_costs(pos, cfg.spread_cost, cfg.pointsize)
-        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy)
-        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy)
+        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy, usdcad_prices=usdcad)
+        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy, usdcad_prices=usdcad)
         all_pnl[code] = gpnl_usd - costs_usd
 
     portfolio_pnl = pd.DataFrame(all_pnl).sum(axis=1)
@@ -222,25 +223,46 @@ def _compute_vol_target_auto(
 
 
 def _run_user_setup(setup_dir: Path) -> None:
-    """Collect forecast weights (step 02) and instrument weights (step 06) once."""
+    """Collect structural parameters once, organized by build phase."""
     print(f"\n  {STEP_LINE}")
     print(f"  Walk-forward setup: structural parameters (collected once)")
     print(f"  {STEP_LINE}\n")
 
     step01 = _import_step("calibrate.01_scale_forecasts")
     step02 = _import_step("calibrate.02_forecast_weights")
+    step03 = _import_step("calibrate.03_fdm")
+    step04 = _import_step("calibrate.04_turnover")
     step06 = _import_step("calibrate.06_instrument_weights")
+    step07 = _import_step("calibrate.07_idm")
 
-    print("  Running step 01 on full data (for rule discovery)...")
+    # ── Phase 2: Rule selection ───────────────────────────────────────────────
+    print(f"  Phase 2 — Rule selection (IS data)")
+    print(f"  {STEP_LINE}")
+
+    print("  Running step 01 on full IS window (rule discovery)...")
     step01.main(state_dir=setup_dir)
 
     print(f"\n  Step 02: Forecast weights")
-    print(f"  {STEP_LINE}")
     step02.main(state_dir=setup_dir)
 
-    print(f"\n  Step 06: Instrument weights")
+    print(f"\n  Step 03: FDM (initial, full IS window)")
+    step03.main(state_dir=setup_dir)
+
+    # ── Phase 3: Instrument weights ───────────────────────────────────────────
+    print(f"\n  Phase 3 — Instrument weights (IS data)")
     print(f"  {STEP_LINE}")
+
+    print(f"  Step 06: Instrument weights")
     step06.main(state_dir=setup_dir)
+
+    print(f"\n  Step 07: IDM (initial, full IS window)")
+    step07.main(state_dir=setup_dir)
+
+    # ── Phase 4: Cost filtering ───────────────────────────────────────────────
+    print(f"\n  Phase 4 — Cost filtering")
+    print(f"  {STEP_LINE}")
+    print(f"  Step 04: Turnover and standardised cost ceiling")
+    step04.main(state_dir=setup_dir)
 
     print(f"\n  Setup complete. Parameters saved to {setup_dir}/\n")
 
@@ -279,8 +301,8 @@ def _run_fold(
     def ctx():
         return contextlib.nullcontext() if verbose else _suppress_stdout()
 
-    # Step 01: rule scalars
-    print(f"    [01] Rule scalars...", end="", flush=True)
+    # Phase 2: rule scalars and FDM (re-calibrated on this fold's IS window)
+    print(f"    [P2] Rule scalars...", end="", flush=True)
     step01 = _import_step("calibrate.01_scale_forecasts")
     with ctx():
         step01.main(state_dir=fold_dir, split_date=is_end)
@@ -288,8 +310,7 @@ def _run_fold(
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     print(" done")
 
-    # Step 03: FDM
-    print(f"    [03] FDM...", end="", flush=True)
+    print(f"    [P2] FDM...", end="", flush=True)
     step03 = _import_step("calibrate.03_fdm")
     with ctx():
         step03.main(state_dir=fold_dir, split_date=is_end)
@@ -297,8 +318,17 @@ def _run_fold(
     calibrated_fdms = {k: float(v) for k, v in fdm_data.items()}
     print(" done")
 
-    # Vol target: Kelly geomean, 10% floor when IS SR ≤ 0
-    print(f"    [05] Vol target...", end="", flush=True)
+    # Phase 3: IDM (re-calibrated on this fold's IS window)
+    print(f"    [P3] IDM...", end="", flush=True)
+    step07 = _import_step("calibrate.07_idm")
+    with ctx():
+        step07.main(state_dir=fold_dir, split_date=is_end)
+    idm_data = st.load("07_idm.yaml", state_dir=fold_dir)
+    calibrated_idm = float(idm_data["idm"])
+    print(f" {calibrated_idm:.3f}")
+
+    # Phase 5: vol target (IS SR → 0.75 OOS discount → Kelly geomean; 15% floor when IS SR ≤ 0)
+    print(f"    [P5] Vol target...", end="", flush=True)
     is_sharpe, vol_target = _compute_vol_target_auto(
         instruments, family_scalars, rule_weights, fdm_data,
         instrument_weights_raw, is_end, capital,
@@ -310,16 +340,7 @@ def _run_fold(
         "is_sharpe": round(is_sharpe, 4),
     }, state_dir=fold_dir)
 
-    # Step 07: IDM
-    print(f"    [07] IDM...", end="", flush=True)
-    step07 = _import_step("calibrate.07_idm")
-    with ctx():
-        step07.main(state_dir=fold_dir, split_date=is_end)
-    idm_data = st.load("07_idm.yaml", state_dir=fold_dir)
-    calibrated_idm = float(idm_data["idm"])
-    print(f" {calibrated_idm:.3f}")
-
-    # Patch instrument weights for run_portfolio
+    # Phase 6: backtest (IS + OOS) with fixed parameters
     cfgs = load_instrument_configs()
     patched_cfgs = {
         code: replace(cfg, weight=instrument_weights_raw.get(code, cfg.weight))
@@ -329,7 +350,7 @@ def _run_fold(
     config_mod.load_instrument_configs = lambda: patched_cfgs
 
     try:
-        print(f"    [08] Backtest...", end="", flush=True)
+        print(f"    [P6] Backtest...", end="", flush=True)
         with ctx():
             result = run_portfolio(
                 instruments=instruments,
@@ -503,7 +524,8 @@ def main() -> None:
     # User setup (once; skipped if already done)
     setup_complete = (
         (setup_dir / "02_forecast_weights.yaml").exists() and
-        (setup_dir / "06_instrument_weights.yaml").exists()
+        (setup_dir / "06_instrument_weights.yaml").exists() and
+        (setup_dir / "04_turnover.yaml").exists()
     )
     if not setup_complete:
         _run_user_setup(setup_dir)

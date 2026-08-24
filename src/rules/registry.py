@@ -178,10 +178,57 @@ class CarryHandler:
         return "CARRY"
 
 
+class SeasonalityHandler:
+    """
+    Seasonality rule handler.
+
+    scalars is a nested dict: {instrument_code: {month_int: float}}.
+    compute_all() looks up the instrument's monthly means via instrument_code.
+    variants_from_cfg() returns [] so the general step-01 loop skips this
+    family — it is calibrated per-instrument as a special case.
+    """
+
+    def compute_all(
+        self, prices: pd.Series, vol: pd.Series | None, scalars,
+        instrument_code: str | None = None,
+    ) -> pd.DataFrame:
+        import src.rules.seasonality as mod
+        month_means = scalars.get(instrument_code, {}) if instrument_code else {}
+        return mod.all_seasonality_forecasts(prices, vol, month_means)
+
+    def compute_one_raw(
+        self, prices: pd.Series, variant, vol: pd.Series | None,
+        instrument_code: str | None = None,
+    ) -> pd.Series:
+        return pd.Series(0.0, index=prices.index)
+
+    def variants_from_cfg(self, cfg_block: dict) -> list:
+        return []
+
+    def parse_scalars(self, raw: dict) -> dict:
+        return {
+            code: {int(k): float(v) for k, v in months.items()}
+            for code, months in raw.items()
+        }
+
+    def dump_scalars(self, scalars: dict) -> dict:
+        return {
+            code: {str(k): round(float(v), 6) for k, v in months.items()}
+            for code, months in scalars.items()
+        }
+
+    def scalar_key(self, variant) -> str:
+        return "seasonal"
+
+    def rule_name(self, variant) -> str:
+        return "SEASONALITY"
+
+
 REGISTRY: dict[str, object] = {
     "ewmac": EWMACHandler(),
     "mr": MRHandler(),
     "breakout": BreakoutHandler(),
     "tsmom": TSMOMHandler(),
     "carry": CarryHandler(),
+    "seasonality": SeasonalityHandler(),
 }

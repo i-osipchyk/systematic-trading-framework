@@ -146,4 +146,6 @@ def required_fx_helpers(cfgs: dict[str, InstrumentConfig]) -> list[str]:
         helpers.add("EURGBP")
     if "JPY" in currencies:
         helpers.add("USDJPY")
+    if "CAD" in currencies:
+        helpers.add("USDCAD")
     return sorted(helpers - traded_codes)

@@ -89,8 +89,17 @@ def write_multiple_prices(df: pd.DataFrame, instrument_code: str, timeframe: str
 
 
 def load_adjusted_prices(instrument_code: str) -> pd.Series:
-    """Read adjusted prices for the active config's timeframe."""
+    """Read adjusted prices for the active config's timeframe.
+
+    Normalises to one bar per weekday (Mon–Fri): removes DST-transition
+    duplicate timestamps (broker server time shifts between 21:00 and 22:00 UTC
+    on the same calendar date) and weekend sessions that some data sources
+    include. Takes the last (most recent) bar for each calendar date.
+    """
     path = adjusted_prices_dir() / f"{instrument_code}.csv"
     series = pd.read_csv(path, index_col="DATETIME", parse_dates=True)["price"]
     series.index = pd.to_datetime(series.index)
+    # One price per calendar date (last bar wins for DST duplicates), weekdays only
+    series = series.groupby(series.index.normalize()).last()
+    series = series[series.index.dayofweek < 5]
     return series
