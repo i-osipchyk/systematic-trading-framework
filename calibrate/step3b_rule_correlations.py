@@ -56,18 +56,18 @@ FAMILY_WEIGHTS: dict[str, float] = {
 # that level.  Single-element lists mean the rule has no siblings.
 FAMILY_STRUCTURE: dict[str, list[list[str]]] = {
     "Trend": [
-        # Fast sub-family: EWMAC_8_32 + BREAKOUT_20 (IS corr 0.731 — same time horizon)
-        ["EWMAC_8_32", "BREAKOUT_20"],
-        # Slow sub-family: EWMAC_32_128 + EWMAC_64_256 (IS corr 0.872 — nearly identical)
-        ["EWMAC_32_128", "EWMAC_64_256"],
+        # Three EWMAC speeds, each a separate sub-family (equal weight within Trend)
+        ["EWMAC_8_32"],
+        ["EWMAC_32_128"],
+        ["EWMAC_64_256"],
     ],
     "Carry": [["CARRY"]],
     "Seasonality": [["SEASONALITY"]],
 }
 
-# Within-family weights: equal split between fast and slow sub-families
+# Within-family weights: equal split across the three trend sub-families
 SUBFAM_WEIGHTS: dict[str, list[float]] = {
-    "Trend": [0.50, 0.50],  # fast sub-family, slow sub-family
+    "Trend": [1/3, 1/3, 1/3],
     "Carry": [1.0],
     "Seasonality": [1.0],
 }
