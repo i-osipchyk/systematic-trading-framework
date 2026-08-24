@@ -45,8 +45,10 @@ from src.data.yf_loader import fetch_yfinance
 from src.data.quandl_loader import fetch_quandl
 from src.data.fred_loader import (
     fetch_bond_price,
+    fetch_ecb_bund_price,
     fetch_fred_price,
     fetch_fred_fx,
+    fetch_fred_eurgbp,
     fetch_datahub_gold,
     fetch_eco3min_silver,
     splice_series,
@@ -141,21 +143,36 @@ def fetch_instrument(
         else:
             print("no data")
 
-    # 3. FRED — bond price proxy (splice with actual futures where they overlap)
+    # 3. FRED + ECB — bond price proxy (FRED monthly early, ECB daily late, then
+    #    the combined yield-derived series is spliced behind Quandl/yfinance)
     if cfg.get("fred_bond"):
         print(f"  [fred] bond yield → price ({cfg['fred_bond']}) ... ", end="", flush=True)
         raw = fetch_bond_price(cfg["fred_bond"], start=start)
-        if not raw.empty and "CLOSE" in raw.columns:
-            fred_df = raw[["DATETIME", "CLOSE"]]
-            print(_report(fred_df))
+        fred_df = raw[["DATETIME", "CLOSE"]] if not raw.empty and "CLOSE" in raw.columns else None
+        print(_report(fred_df) if fred_df is not None else "no data")
+
+        # For BUND: layer ECB daily (2004–present) on top of FRED monthly to close the lag gap
+        if cfg["fred_bond"] == "BUND":
+            print(f"  [ecb] Bund daily yield → price ... ", end="", flush=True)
+            ecb_raw = fetch_ecb_bund_price(start=start)
+            if not ecb_raw.empty and "CLOSE" in ecb_raw.columns:
+                ecb_df = ecb_raw[["DATETIME", "CLOSE"]]
+                print(_report(ecb_df))
+                if fred_df is not None:
+                    fred_df = splice_series(early=fred_df, late=ecb_df)
+                    print(f"  [splice fred+ecb] {_report(fred_df)}")
+                else:
+                    fred_df = ecb_df
+            else:
+                print("no data")
+
+        if fred_df is not None:
             if best is None:
                 best = fred_df
             else:
-                # Splice: FRED is the early series, yfinance/quandl is the late series
                 best = splice_series(early=fred_df, late=best)
                 print(f"  [splice] combined: {_report(best)}")
-        else:
-            print("no data")
+
 
     # 3b. FRED — commodity spot / monthly price (splice with futures at overlap)
     if cfg.get("fred_price"):
@@ -187,7 +204,22 @@ def fetch_instrument(
         else:
             print("no data")
 
-    # 3d. Datahub.io — gold monthly from 1833, splice with GC=F at 2000
+    # 3d. FRED — EURGBP derived from EURUSD/GBPUSD (from 1999, splice with yfinance)
+    if cfg.get("fred_eurgbp"):
+        print(f"  [fred] EURGBP (derived) ... ", end="", flush=True)
+        raw = fetch_fred_eurgbp(start=start)
+        if not raw.empty and "CLOSE" in raw.columns:
+            fred_df = raw[["DATETIME", "CLOSE"]]
+            print(_report(fred_df))
+            if best is None:
+                best = fred_df
+            else:
+                best = splice_series(early=fred_df, late=best)
+                print(f"  [splice] combined: {_report(best)}")
+        else:
+            print("no data")
+
+    # 3e. Datahub.io — gold monthly from 1833, splice with GC=F at 2000
     if cfg.get("datahub_gold"):
         print(f"  [datahub] gold monthly ... ", end="", flush=True)
         raw = fetch_datahub_gold(start=start)
@@ -202,7 +234,7 @@ def fetch_instrument(
         else:
             print("no data")
 
-    # 3e. eco3min.fr — silver monthly from 1960, splice with SI=F at 2000
+    # 3f. eco3min.fr — silver monthly from 1960, splice with SI=F at 2000
     if cfg.get("eco3min_silver"):
         print(f"  [eco3min] silver monthly ... ", end="", flush=True)
         raw = fetch_eco3min_silver(start=start)

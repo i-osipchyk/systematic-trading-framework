@@ -1,10 +1,11 @@
 """Download historical data from FRED (Federal Reserve Economic Data) and Datahub.io.
 
 Sources:
-  FRED  — bond price proxies (yield→price), FX spot rates, commodity spot prices
+  FRED     — bond price proxies (yield→price), FX spot rates, commodity spot prices
+  ECB SDW  — daily German 10Y yields, no API key, no publication lag
   Datahub.io — gold monthly from 1833, no API key needed
 
-All FRED data is free and public (no API key required).
+All data is free and public (no API key required).
 
 Returns data in the same format as yf_loader / quandl_loader:
   columns: DATETIME, OPEN, HIGH, LOW, CLOSE, VOLUME
@@ -26,6 +27,8 @@ _TIMEOUT = 30
 
 # Bond yields (daily)
 _YIELD_SERIES = {
+    "US2YR":  ("DGS2",              2.0),    # 2yr T-Note yield, from 1976
+    "US5YR":  ("DGS5",              5.0),    # 5yr T-Note yield, from 1962
     "US10YR": ("DGS10",             10.0),   # 10yr T-Note yield, from 1962
     "US30YR": ("DGS30",             30.0),   # 30yr T-Bond yield, from 1977
     "BUND":   ("IRLTLT01DEM156N",   10.0),   # German long-term, monthly from 1960
@@ -38,6 +41,7 @@ _FX_SERIES = {
     "USDCAD": ("DEXCAUS", False),  # CAD per USD  → USDCAD direct
     "USDJPY": ("DEXJPUS", False),  # JPY per USD  → USDJPY direct
     "GBPUSD": ("DEXUSUK", False),  # USD per GBP  → GBPUSD direct
+    "EURUSD": ("DEXUSEU", False),  # USD per EUR  → EURUSD direct, from 1999
 }
 
 # Commodity spot prices
@@ -111,6 +115,22 @@ def _yield_to_price(yield_pct: np.ndarray, maturity: float, coupon: float = _TRE
     return c * (1 - (1 + safe_y) ** -n) / safe_y + 100 * (1 + safe_y) ** -n
 
 
+# ECB SDW YC dataset — daily euro area AAA 10Y spot rate, no API key, current through prior business day
+# Covers 2004-09-06 to present; spliced with FRED monthly (1960) for pre-2004 history
+_ECB_YC_URL = "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y"
+
+
+def _fetch_ecb_bund_yields() -> pd.Series:
+    """Fetch daily euro area AAA 10Y spot rate from ECB YC dataset."""
+    r = requests.get(_ECB_YC_URL, params={"format": "csvdata"}, timeout=_TIMEOUT)
+    r.raise_for_status()
+    df = pd.read_csv(io.StringIO(r.text))
+    df["TIME_PERIOD"] = pd.to_datetime(df["TIME_PERIOD"], errors="coerce")
+    df["OBS_VALUE"] = pd.to_numeric(df["OBS_VALUE"], errors="coerce")
+    df = df.dropna(subset=["TIME_PERIOD", "OBS_VALUE"]).set_index("TIME_PERIOD").sort_index()
+    return df["OBS_VALUE"]
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def fetch_bond_price(instrument: str, start: str = "1960-01-01") -> pd.DataFrame:
@@ -135,10 +155,27 @@ def fetch_bond_price(instrument: str, start: str = "1960-01-01") -> pd.DataFrame
     return _to_ohlcv(prices, start=start)
 
 
+def fetch_ecb_bund_price(start: str = "1984-01-01") -> pd.DataFrame:
+    """Fetch euro area AAA 10Y Bund price proxy from ECB YC dataset.
+
+    ECB publishes daily with no material lag (unlike FRED's OECD monthly series).
+    Covers from 2004-09-06 to present. Use splice_series with fetch_bond_price
+    (FRED monthly, from 1960) to get the full history back to 1984.
+    """
+    try:
+        yields = _fetch_ecb_bund_yields()
+    except Exception as e:
+        print(f"  [ecb] ERROR fetching Bund yields: {e}")
+        return pd.DataFrame()
+
+    prices = pd.Series(_yield_to_price(yields.values, 10.0), index=yields.index)
+    return _to_ohlcv(prices.dropna(), start=start)
+
+
 def fetch_fred_fx(instrument: str, start: str = "1984-01-01") -> pd.DataFrame:
     """Fetch daily FX spot rates from FRED.
 
-    Available instruments: AUDUSD (1971), USDCAD (1971), USDJPY (1971), GBPUSD (1971).
+    Available instruments: AUDUSD (1971), USDCAD (1971), USDJPY (1971), GBPUSD (1971), EURUSD (1999).
     """
     if instrument not in _FX_SERIES:
         raise ValueError(f"No FRED FX series for {instrument}. Available: {list(_FX_SERIES)}")
@@ -204,6 +241,24 @@ def fetch_datahub_gold(start: str = "1984-01-01") -> pd.DataFrame:
         label="datahub/gold",
         start=start,
     )
+
+
+def fetch_fred_eurgbp(start: str = "1984-01-01") -> pd.DataFrame:
+    """Compute EURGBP = EURUSD / GBPUSD from FRED daily series.
+
+    DEXUSEU (USD per EUR) and DEXUSUK (USD per GBP) both available from 1999-01-04.
+    Aligned on their common dates before division.
+    """
+    try:
+        eurusd = _fetch_fred("DEXUSEU")
+        gbpusd = _fetch_fred("DEXUSUK")
+    except Exception as e:
+        print(f"  [fred] ERROR fetching EURGBP constituents: {e}")
+        return pd.DataFrame()
+
+    common = eurusd.index.intersection(gbpusd.index)
+    eurgbp = eurusd.loc[common] / gbpusd.loc[common]
+    return _to_ohlcv(eurgbp.dropna(), start=start)
 
 
 def fetch_eco3min_silver(start: str = "1984-01-01") -> pd.DataFrame:

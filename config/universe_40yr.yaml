@@ -1,4 +1,4 @@
-# TARGET UNIVERSE — 25 instruments, 40-year backtest
+# TARGET UNIVERSE — 31 instruments, 40-year backtest
 # ─────────────────────────────────────────────────────────────────────────────
 # Data sources (preferred → fallback):
 #   quandl_dataset : Nasdaq Data Link CHRIS continuous futures (Panama-adjusted)
@@ -71,6 +71,45 @@ instruments:
     yf_ticker: "USDCAD=X"
     fred_fx: USDCAD        # FRED DEXCAUS, daily from 1971
 
+  EURUSD:
+    description: Euro / US Dollar
+    asset_type: currency
+    currency: USD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00008
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: EURUSD
+    yf_ticker: "EURUSD=X"
+    fred_fx: EURUSD        # FRED DEXUSEU, daily from 1999
+
+  GBPUSD:
+    description: British Pound / US Dollar
+    asset_type: currency
+    currency: USD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00010
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: GBPUSD
+    yf_ticker: "GBPUSD=X"
+    fred_fx: GBPUSD        # FRED DEXUSUK, daily from 1971
+
+  EURGBP:
+    description: Euro / British Pound
+    asset_type: currency
+    currency: GBP
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: EURGBP
+    yf_ticker: "EURGBP=X"
+    fred_eurgbp: true      # Derived from FRED DEXUSEU/DEXUSUK, from 1999
+
   # ── Equity Indices ─────────────────────────────────────────────────────────
 
   US500:
@@ -133,7 +172,45 @@ instruments:
     ctrader_symbol: HK50
     yf_ticker: "^HSI"
 
+  UK100:
+    description: FTSE 100 Index
+    asset_type: index
+    currency: GBP
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 1.0
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: UK100
+    yf_ticker: "^FTSE"
+
   # ── Government Bonds ───────────────────────────────────────────────────────
+
+  US2YR:
+    description: US 2-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.01
+    lot_step: 0.01
+    traded: false
+    quandl_dataset: CHRIS/CME_TU1
+    yf_ticker: "ZT=F"
+    fred_bond: US2YR      # FRED DGS2 yield → price proxy, from 1976
+
+  US5YR:
+    description: US 5-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.015
+    lot_step: 0.01
+    traded: false
+    quandl_dataset: CHRIS/CME_FV1
+    yf_ticker: "ZF=F"
+    fred_bond: US5YR      # FRED DGS5 yield → price proxy, from 1962
 
   US10YR:
     description: US 10-Year T-Note Futures (continuous)
@@ -170,6 +247,7 @@ instruments:
     spread_cost: 0.02
     lot_step: 0.01
     traded: false
+    ctrader_symbol: EUROBUNDF
     quandl_dataset: CHRIS/EUREX_FGBL1
     fred_bond: BUND       # FRED German long-term yield → price proxy, from 1960
     # yfinance does not carry EUREX contracts
