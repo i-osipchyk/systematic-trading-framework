@@ -222,4 +222,4 @@ data/futures/adjusted_prices_csv/*.csv
 data/futures/multiple_prices_csv/*.csv
 
 # Calibration run outputs — results are ignored, config/ is tracked
-systems/*/results/
+systems/
