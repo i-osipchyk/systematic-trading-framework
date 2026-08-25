@@ -150,31 +150,19 @@ def main(state_dir=None, split_date=None) -> None:
     else:
         print(f"  IDM      = {idm:.3f}")
 
-    # ── Markdown report ────────────────────────────────────────────────────────
-    report_lines: list[str] = ["# Step 4 Instrument Weights Report", ""]
-
-    report_lines += ["## Instrument Return Correlations", ""]
-    header_md = "| |" + "".join(f" {c} |" for c in ordered_instruments)
-    sep_md = "|---|" + "".join("---|" for _ in ordered_instruments)
-    report_lines += [header_md, sep_md]
-    for i, r1 in enumerate(ordered_instruments):
-        row_md = f"| **{r1}** |" + "".join(
-            f" {corr_vals[i, j]:.2f} |" for j in range(len(ordered_instruments))
-        )
-        report_lines.append(row_md)
-    report_lines.append("")
-
-    report_lines += ["## IDM", ""]
-    report_lines.append(f"| Metric | Value |")
-    report_lines.append(f"|--------|-------|")
-    report_lines.append(f"| Raw IDM (1/√(w'Cw)) | {raw_idm:.3f} |")
-    report_lines.append(f"| IDM (after cap 2.5) | {idm:.3f} |")
-    report_lines.append(f"| Portfolio variance w'Cw | {port_var:.4f} |")
-    report_lines.append("")
-
+    # ── Markdown report — append IDM section to step4_report.md ──────────────
     report_path = st.path("step4_report.md", state_dir=state_dir)
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text("\n".join(report_lines))
+    idm_lines: list[str] = [
+        "## IDM  (portfolio-weighted IS PnL correlations)", "",
+        "| Metric | Value |",
+        "|--------|-------|",
+        f"| Raw IDM (1/√(w'Cw)) | {raw_idm:.3f} |",
+        f"| IDM (after cap 2.5) | {idm:.3f} |",
+        f"| Portfolio variance w'Cw | {port_var:.4f} |",
+        "",
+    ]
+    with open(report_path, "a") as f:
+        f.write("\n".join(idm_lines))
 
     # Save state
     st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)

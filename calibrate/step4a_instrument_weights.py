@@ -162,8 +162,8 @@ def _validate_individual_weights(instruments: list[str], data: dict) -> list[str
     return errors
 
 
-def _print_corr(instruments: list[str], split_date) -> None:
-    """Print IS price-return correlation matrix before the user sets weights."""
+def _print_and_report_corr(instruments: list[str], split_date, state_dir) -> None:
+    """Print and save IS price-return correlation matrix before the user sets weights."""
     returns: dict[str, pd.Series] = {}
     for code in instruments:
         try:
@@ -197,13 +197,27 @@ def _print_corr(instruments: list[str], split_date) -> None:
         print(row)
     print()
 
+    # Markdown report
+    lines = ["# Step 4 Instrument Weights Report", "",
+             "## Instrument Return Correlations  (IS price returns)", ""]
+    lines.append("| |" + "".join(f" {c} |" for c in codes))
+    lines.append("|---|" + "".join("---|" for _ in codes))
+    for i, r1 in enumerate(codes):
+        lines.append(f"| **{r1}** |" + "".join(f" {vals[i,j]:.2f} |" for j in range(len(codes))))
+    lines.append("")
+
+    report_path = st.path("step4_report.md", state_dir=state_dir)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("\n".join(lines))
+    print(f"  Saved → {report_path}")
+
 
 def main(state_dir=None) -> None:
     group_to_instruments = _get_groups()
     all_instruments = [code for codes in group_to_instruments.values() for code in codes]
 
     split_date = compute_split_date(all_instruments)
-    _print_corr(all_instruments, split_date)
+    _print_and_report_corr(all_instruments, split_date, state_dir)
 
     # ── Pass 1: group-level weights ────────────────────────────────────────────
     if not st.exists(GROUP_FILENAME, state_dir=state_dir):
