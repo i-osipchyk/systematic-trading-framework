@@ -18,10 +18,10 @@ OOS slices are concatenated into a single honest equity curve.
 
 Usage:
     uv run python calibrate/wf_pipeline.py
-    uv run python calibrate/wf_pipeline.py --config config/default.yaml
+    uv run python calibrate/wf_pipeline.py --config config/universe_v3
     uv run python calibrate/wf_pipeline.py --min-is-years 3 --oos-years 1
-    uv run python calibrate/wf_pipeline.py --resume systems/default/wf_run_X
-    uv run python calibrate/wf_pipeline.py --resume systems/default/wf_run_X --from-fold 3
+    uv run python calibrate/wf_pipeline.py --resume systems/universe_v3/wf_run_X
+    uv run python calibrate/wf_pipeline.py --resume systems/universe_v3/wf_run_X --from-fold 3
     uv run python calibrate/wf_pipeline.py --verbose
 """
 from __future__ import annotations
@@ -446,7 +446,7 @@ def _print_wf_summary(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Walk-forward calibration pipeline")
-    parser.add_argument("--config", type=str, default="config/default.yaml")
+    parser.add_argument("--config", type=str, default="config/universe_v3")
     parser.add_argument("--min-is-years", type=int, default=2,
                         help="Minimum IS window in years (default: 2)")
     parser.add_argument("--oos-years", type=int, default=1,

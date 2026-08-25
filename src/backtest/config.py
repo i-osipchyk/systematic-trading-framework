@@ -7,18 +7,30 @@ from pathlib import Path
 import yaml
 
 _CONFIG_ROOT = Path(__file__).parents[2] / "config"
-# Env var TRADING_CONFIG lets subprocesses inherit the active config
-CONFIG_PATH: Path = Path(os.getenv("TRADING_CONFIG", str(_CONFIG_ROOT / "default.yaml")))
+# Env var TRADING_CONFIG lets subprocesses inherit the active config path (file or directory)
+CONFIG_PATH: Path = Path(os.getenv("TRADING_CONFIG", str(_CONFIG_ROOT / "universe_v3")))
 
 
 def set_config(path: str | Path) -> None:
-    """Override the active config file. Call before any load_* functions."""
+    """Override the active config. Call before any load_* functions.
+
+    Accepts either a single yaml file or a directory. For a directory, all
+    *.yaml files are merged in alphabetical order (base.yaml → instruments.yaml
+    → rules.yaml).
+    """
     global CONFIG_PATH
     CONFIG_PATH = Path(path)
 
 
 def _load_raw() -> dict:
-    with open(CONFIG_PATH) as f:
+    p = CONFIG_PATH
+    if p.is_dir():
+        merged: dict = {}
+        for f in sorted(p.glob("*.yaml")):
+            with open(f) as fh:
+                merged.update(yaml.safe_load(fh) or {})
+        return merged
+    with open(p) as f:
         return yaml.safe_load(f)
 
 

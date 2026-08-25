@@ -1,0 +1,4 @@
+timeframe: D1
+bars_per_year: 256
+end_date: "2010-01-01"
+split_date: "2010-01-01"   # standalone calibration scripts treat all data as IS

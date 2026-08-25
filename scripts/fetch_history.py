@@ -33,7 +33,7 @@ def main():
                         help="Use demo account endpoint instead of live")
     parser.add_argument("--config", default=None, metavar="PATH",
                         help="Config file to use for instrument/symbol lookup "
-                             "(default: config/default.yaml)")
+                             "(default: config/universe_v3.yaml)")
     parser.add_argument("--instruments", nargs="+", metavar="CODE",
                         help="Only fetch these instrument codes (default: all in config)")
     args = parser.parse_args()

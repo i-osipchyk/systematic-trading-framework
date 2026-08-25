@@ -346,7 +346,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OOS validation")
     parser.add_argument("--state-dir", type=str, default=None,
-                        help="Run directory to load state from (default: calibrate/state/)")
+                        help="Run directory to load state from (default: systems/latest)")
     parser.add_argument("--include-all", action="store_true",
                         help="Include all instruments regardless of 'traded: false'")
     parser.add_argument("--vol-target", type=float, default=VOL_TGT,

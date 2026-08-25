@@ -240,7 +240,7 @@ def main(state_dir=None) -> None:
     print(f"  {'─' * 48}")
     print(f"  {'Total':<20} {total_base:>10.4f}  {total_adj:>14.4f}")
 
-    print("\n  To use these weights, edit calibrate/state/step3d_forecast_weights.yaml:")
+    print("\n  To use these weights, edit the run dir's step3d_forecast_weights.yaml:")
     print("  forecast_weights:")
     for rule, w in sorted(adjusted_weights.items(), key=lambda x: -x[1]):
         print(f"    {rule}: {round(w, 4)}")

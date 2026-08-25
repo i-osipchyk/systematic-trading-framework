@@ -1,21 +1,11 @@
 # BUILD v3 — 23 instruments: equities, bonds, commodities (no FX)
 # ─────────────────────────────────────────────────────────────────────────────
 # Instrument selection: docs/decisions/build_v3_step1_instrument_selection.md
-# Rule selection:       docs/decisions/step2_rule_selection.md (unchanged from v2)
-#
 # IS window: ~1984–2010 (instrument-dependent start; all IS data pre-2010-01-01)
-# Val window: 2010-01-01 – 2018-01-01  (locked, not used for any calibration)
-# Test window: 2018-01-01 – present     (locked, one-shot only)
-#
 # Weights are equal placeholders (1/23). Step 4 calibration overwrites them.
 # traded: true  → Pepperstone/cTrader live universe
 # traded: false → backtest universe only (no live position; diversification only)
 # ─────────────────────────────────────────────────────────────────────────────
-
-timeframe: D1
-bars_per_year: 256
-end_date: "2010-01-01"
-split_date: "2010-01-01"   # standalone calibration scripts treat all data as IS
 
 instruments:
 
@@ -326,28 +316,3 @@ instruments:
     quandl_dataset: CHRIS/CME_W1
     yf_ticker: "ZW=F"
     fred_price: Wheat      # FRED PWHEAMTUSDM monthly, from 1992
-
-rules:
-  # ── Trend: EWMAC 5 speeds ─────────────────────────────────────────────────
-  # Breakout (corr 0.88-0.90 with matched EWMAC) and TSMOM (0.84-0.85) dropped
-  # after Step 3b: both above the 0.80 structural redundancy threshold.
-  # EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; cost ceiling 0.0027 (too tight).
-
-  ewmac:
-    pairs:
-      - [4, 16]     # ~2-4 weeks
-      - [8, 32]     # ~4-8 weeks
-      - [16, 64]    # ~2-4 months
-      - [32, 128]   # ~4-6 months
-      - [64, 256]   # ~6-12 months
-
-  # ── Seasonality ──────────────────────────────────────────────────────────
-  # Applied to all 23 instruments. IS monthly scalars determine where signal
-  # exists; near-zero scalars for instruments with no seasonal pattern have
-  # negligible impact after FDM adjustment.
-  seasonality:
-    instruments: [US500, NAS100, GER40, JPN225, HK50, UK100,
-                  US2YR, US5YR, US10YR, US30YR, BUND,
-                  XAU, XAG, COPPER,
-                  SpotCrude, Gasoline,
-                  Coffee, Cocoa, Sugar, Corn, Cotton, Soybeans, Wheat]

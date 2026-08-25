@@ -6,11 +6,12 @@ run directory under systems/. Skips steps whose output state files already
 exist (unless --force or --from N is given).
 
 Usage:
-    uv run python calibrate/pipeline.py                           # new run, all steps
-    uv run python calibrate/pipeline.py --resume systems/run_X   # resume existing run
-    uv run python calibrate/pipeline.py --resume systems/run_X --from 3
-    uv run python calibrate/pipeline.py --resume systems/run_X --force
-    uv run python calibrate/pipeline.py --step 5                  # new run, only step 5
+    uv run python calibrate/pipeline.py                                        # new run (universe_v3)
+    uv run python calibrate/pipeline.py --config config/universe_v2           # specific build
+    uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X    # resume existing run
+    uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X --from 3
+    uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X --force
+    uv run python calibrate/pipeline.py --step 5                               # new run, only step 5
 """
 from __future__ import annotations
 
@@ -169,9 +170,9 @@ def _init_run_log(run_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Calibration pipeline")
-    parser.add_argument("--config", type=str, default="config/default.yaml",
+    parser.add_argument("--config", type=str, default="config/universe_v3",
                         metavar="PATH",
-                        help="Strategy config file (default: config/default.yaml)")
+                        help="Strategy config folder (default: config/universe_v3)")
     parser.add_argument("--demo", action="store_true",
                         help="Use demo account for data fetching (step 0)")
     parser.add_argument("--resume", type=str, default=None,

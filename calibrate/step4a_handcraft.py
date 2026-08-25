@@ -15,7 +15,7 @@ while uncorrelated siblings each receive a full budget allocation.
 The top-level asset-class split (FX / Equities / Bonds / Commodities) is also
 correlation-adjusted — not equal weight — consistent with the rest of the tree.
 
-Output: calibrate/state/step4a_instrument_weights.yaml
+Output: <run_dir>/step4a_instrument_weights.yaml
 Usage:
     TRADING_CONFIG=config/universe_v2.yaml uv run python calibrate/step4a_handcraft.py
 """
