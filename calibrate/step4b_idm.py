@@ -28,7 +28,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.calibration import state as st
-from src.backtest.config import load_instrument_configs, traded_instruments, required_fx_helpers
+from src.backtest.config import load_bars_per_year, load_capital, load_instrument_configs, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.idm import compute_idm
 
@@ -163,6 +163,62 @@ def main(state_dir=None, split_date=None) -> None:
     ]
     with open(report_path, "a") as f:
         f.write("\n".join(idm_lines))
+
+    # ── Minimum position size check ────────────────────────────────────────────
+    capital = load_capital()
+    too_small: list[tuple[str, float, float]] = []  # (code, median_lots, lot_step)
+
+    for code in ordered_instruments:
+        cfg = cfgs[code]
+        inst_weight = instrument_weights_raw.get(code, 0.0)
+        try:
+            prices = load_adjusted_prices(code)
+        except FileNotFoundError:
+            continue
+        is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) < 20:
+            continue
+        from src.rules.vol import daily_vol as _daily_vol
+        vol_is = _daily_vol(is_prices)
+        annual_vol_price = (vol_is * is_prices).mean() * (load_bars_per_year() ** 0.5)
+        if annual_vol_price == 0 or cfg.pointsize == 0:
+            continue
+        target_lots = (capital * _VOL_PLACEHOLDER * idm * inst_weight) / (annual_vol_price * cfg.pointsize)
+        if target_lots < cfg.lot_step:
+            too_small.append((code, round(target_lots, 4), cfg.lot_step))
+
+    SEP2 = "─" * 70
+    print(f"\n  {SEP2}")
+    print(f"  MINIMUM POSITION CHECK  (capital={capital:,.0f} USD, vol={_VOL_PLACEHOLDER:.0%}, IDM={idm:.2f})")
+    print(f"  {SEP2}")
+    if too_small:
+        print(f"  {'Instrument':<14} {'Target lots':>12}  {'Min lot':>8}  Status")
+        print(f"  {'─' * 48}")
+        for code, lots, step in too_small:
+            print(f"  {code:<14} {lots:>12.4f}  {step:>8.4f}  ⚠ below minimum")
+    else:
+        print("  All instruments clear the minimum lot threshold.")
+
+    # Append min-position section to report
+    min_pos_lines: list[str] = [
+        f"## Minimum Position Check",
+        f"",
+        f"Capital: {capital:,.0f} USD | Vol target: {_VOL_PLACEHOLDER:.0%} | IDM: {idm:.3f}",
+        "",
+    ]
+    if too_small:
+        min_pos_lines += [
+            "| Instrument | Target lots | Min lot |",
+            "|------------|-------------|---------|",
+        ]
+        for code, lots, step in too_small:
+            min_pos_lines.append(f"| {code} | {lots:.4f} | {step:.4f} |")
+    else:
+        min_pos_lines.append("All instruments clear the minimum lot threshold.")
+    min_pos_lines.append("")
+
+    with open(report_path, "a") as f:
+        f.write("\n".join(min_pos_lines))
 
     # Save state
     st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)

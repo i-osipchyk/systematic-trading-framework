@@ -114,6 +114,11 @@ def load_end_date() -> datetime | None:
     return None
 
 
+def load_capital() -> float:
+    """Return assumed account capital in USD (default 100 000)."""
+    return float(_load_raw().get("capital", 100_000.0))
+
+
 def load_split_date() -> datetime | None:
     """Return the explicit IS/OOS split date from config, or None if not set.
 
