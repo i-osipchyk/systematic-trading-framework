@@ -1,18 +1,27 @@
-# Forecast combination weights
-# ─────────────────────────────────────────────────────────────────
-# Derived via Carver handcrafting from IS rule forecast correlations.
-# Revised after validation analysis (2010–2017):
-#   - BREAKOUT_20 removed: IS 1.39 → Val -0.54; highest turnover (46 RT/yr)
-#   - Fast sub-family collapsed: EWMAC_8_32 now sole fast trend rule
+# Forecast weights — Step 3d
+# ─────────────────────────────────────────────────────────────────────────────
+# Rule set: 5 EWMAC speeds + Carry + Seasonality
+# EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; cost ceiling fails 11/27 instruments.
 #
-# Family structure:
-#   Trend (50%): EWMAC_8_32 + EWMAC_32_128 + EWMAC_64_256 (equal thirds)
-#   Carry (25%): FX (1) + bond (4) instruments
-#   Seasonality (25%): energy (1) + ag (4) instruments
+# Family split: Trend 50% / Carry 25% / Seasonality 25%
+# Within trend: equal weight across 5 speeds → 10% each
 #
+# Per-instrument-type effective split (after FDM rescaling):
+#   Equities / Metals   → 100% Trend  (carry=0, season=0 → FDM ~2×)
+#   FX / Bonds          → ~67% Trend, ~33% Carry
+#   Ags / Energy        → ~67% Trend, ~33% Seasonality
+#
+# Cost filter notes (Step 3c):
+#   EWMAC_4_16 fails for: XAU, XAG, Cocoa
+#   EWMAC_8_32 fails for: XAG, Cocoa
+#   EWMAC_16_64 and slower: all 29 instruments pass
+# ─────────────────────────────────────────────────────────────────────────────
+
 forecast_weights:
-  EWMAC_8_32:    0.1667
-  EWMAC_32_128:  0.1667
-  EWMAC_64_256:  0.1666
-  CARRY:         0.2500
-  SEASONALITY:   0.2500
+  EWMAC_4_16:   0.1000
+  EWMAC_8_32:   0.1000
+  EWMAC_16_64:  0.1000
+  EWMAC_32_128: 0.1000
+  EWMAC_64_256: 0.1000
+  CARRY:        0.2500
+  SEASONALITY:  0.2500

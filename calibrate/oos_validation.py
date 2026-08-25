@@ -48,14 +48,15 @@ from src.rules.vol import daily_vol
 IS_END   = pd.Timestamp("2010-01-01")
 VAL_END  = pd.Timestamp("2018-01-01")
 CAPITAL  = 10_000.0
-VOL_TGT  = 0.15  # default; overrideable via --vol-target
+VOL_TGT  = 0.20  # default; overrideable via --vol-target
 
 GROUPS: dict[str, list[str]] = {
-    "FX":          ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "USDCAD"],
-    "Equities":    ["US500", "NAS100", "GER40", "JPN225", "HK50"],
-    "Bonds":       ["US2YR", "US5YR", "US10YR", "US30YR", "BUND"],
-    "Commodities": ["XAU", "XAG", "COPPER", "SpotCrude", "NatGas",
-                    "Coffee", "Cocoa", "Sugar", "Corn", "Cotton"],
+    "FX":       ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "USDCAD"],
+    "Equities": ["US500", "NAS100", "GER40", "JPN225", "HK50", "UK100"],
+    "Bonds":    ["US2YR", "US5YR", "US10YR", "US30YR", "BUND"],
+    "Metals":   ["XAU", "XAG", "COPPER"],
+    "Energy":   ["SpotCrude", "Gasoline"],
+    "Ags":      ["Coffee", "Cocoa", "Sugar", "Corn", "Cotton", "Soybeans", "Wheat"],
 }
 
 

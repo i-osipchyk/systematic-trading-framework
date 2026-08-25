@@ -157,14 +157,17 @@ At the chosen vol target and IDM, check that each instrument's allocation produc
 
 **This is the only step where backtested performance is explicitly used as a decision input.**
 
+**OOS data is not touched at this step.** The val and test periods are reserved for the one-shot validation that follows after all five steps are locked. Running Step 5 on IS data only is not a limitation — the vol target is derived from Kelly analysis on the IS SR, and IS SR is approximately scale-invariant to the vol target choice. Looking at val/test here would contaminate the one-shot validation.
+
 ### Run the IS backtest
 
-With all parameters locked from Steps 1–4, run a full portfolio backtest on IS data:
+With all parameters locked from Steps 1–4, run a full portfolio backtest on **IS data only**:
 
-- Vol target: use a placeholder (e.g. 25%) to produce meaningful SR — SR is approximately scale-invariant to the vol target choice
+- Vol target: use a placeholder (e.g. 20%) to produce meaningful SR — SR is approximately scale-invariant to the vol target choice
 - Apply FDMs from Step 3, IDM from Step 4
 - Apply instrument weights from Step 4
-- Report: IS SR, IS annual return, IS max drawdown, per-instrument SR, per-rule SR
+- Report: IS SR, IS annual return, IS max drawdown, per-instrument IS SR only
+- Do not split the output into val/test — OOS data stays locked
 
 ### Cross-validation function of the IS backtest
 

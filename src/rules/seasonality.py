@@ -23,8 +23,8 @@ FORECAST_CAP = 20.0
 
 # Instruments where seasonality is meaningfully applicable
 SEASONAL_INSTRUMENTS: set[str] = {
-    "Coffee", "Cocoa", "Sugar", "Corn", "Cotton",  # agricultural softs
-    "NatGas", "SpotCrude",                          # energy
+    "Coffee", "Cocoa", "Sugar", "Corn", "Cotton", "Soybeans", "Wheat",  # ags
+    "SpotCrude", "Gasoline",                                             # energy
 }
 
 

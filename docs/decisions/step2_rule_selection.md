@@ -1,153 +1,134 @@
 # Step 2 — Rule Selection
 
-**Date:** 2026-08-24  
-**Status:** Confirmed — pending rate data extension (see action items)
+**Date:** 2026-08-25
+**Status:** Confirmed — final rule set after Step 3b correlation analysis
+**Config:** `config/universe_v2.yaml`
 
 ---
 
-## Diagnosis: why the current rules are all trend-following
+## Discipline
 
-### MR is structurally −EWMAC
+Start broad, prune by structural redundancy — never by performance.
 
-The two formulae, from the source code:
+Drop a rule family only if:
+- Its correlation with another family exceeds ~0.8 across the portfolio (structural redundancy)
+- No instrument in the universe survives the Step 3c cost filter
 
-```
-EWMAC:  raw =  (fast_EMA − slow_EMA) / (price × daily_vol)
-MR:     raw = −(price   − EMA)       / (price × daily_vol)
-```
+Do not drop based on backtested SR. Rules with similar SR but lower inter-family correlation add more portfolio value in combination than rules with better SR but high correlation.
 
-When price rises, fast\_EMA > slow\_EMA (EWMAC positive) and price > EMA (MR negative). They are measuring the same underlying fact — "price recently moved up relative to its own average" — with opposite signs. The −0.9 observed correlation is the expected mathematical consequence, not a coincidence. MR in this form is not a mean-reversion rule in any structural sense; it is an inverse-trend rule. Combining an inverse-trend rule with trend rules does not add diversification: it partially cancels the trend signal, requires the FDM to inflate the combined forecast to compensate, and produces a mostly-noise output with a misleadingly large position size. This is the exact failure mode described in the process notes ("combining near-perfectly-anticorrelated rules would push the FDM very high to inflate a mostly-noise signal").
-
-### TSMOM and longer breakouts are redundant with EWMAC
-
-TSMOM (time series momentum over a lookback window) and EWMAC (EMA crossover) both answer the same question: "has this instrument trended over the past N days?" They are the same factor expressed in different functional forms. The 0.5+ pairwise correlation is not surprising — it is the correct diagnosis. Keeping both means paying the weight allocation cost for a second, noisier proxy of the same signal.
-
-BREAKOUT(20) is different in kind: a Donchian channel breakout triggers only when price makes a new N-day high/low, which fires discretely and less frequently than a smoothed EMA. The 20-day lookback sits at the fast end and captures sharp directional moves that a smoothed EMA would still be building up to. BREAKOUT(50), (100), (200) progressively converge toward the slower EWMAC signals and lose this differentiation.
+Final weights and pruning decisions come from the Step 3b correlation matrix — not from this step.
 
 ---
 
-## The case for carry
+## Rule families
 
-Carry is the one structurally different rule already implemented (`src/rules/carry.py`). Its signal is:
+### Trend family — EWMAC, Breakout, TSMOM
 
-```
-raw = (base_rate% − quote_rate%) / (price_vol × sqrt(bars_per_year))
-```
+All three express the same underlying hypothesis (price momentum persists) but via structurally different algorithms:
 
-This is entirely driven by central bank interest rate differentials — not by recent price movement at all. A country with higher rates attracts capital flows and its currency tends to appreciate; a country with lower rates tends to depreciate. This is an independent causal mechanism from trend-following: carry and trend can align (a high-rate currency is also trending up) or oppose (a low-rate currency is in a strong trend), but the signal source is orthogonal. Expected correlation with EWMAC: approximately 0.15–0.25 in periods where rate differentials are persistent and slowly changing; near zero in periods of rapid rate changes (2022–2023).
+**EWMAC** (exponentially-weighted crossover): vol-normalised, exponentially weighted, responds continuously to new price information. The slow EMA effectively integrates all past prices with exponential decay.
 
-For non-FX instruments (equities, bonds, commodities), `carry.py` already returns a zero series — the forecast weight for carry is wasted for those instruments, but this is handled correctly by the per-instrument FDM: instruments without a carry signal get their FDM computed on the trend-only correlation matrix.
+**Breakout** (Donchian channel): position of current price within the N-day high-low channel. Normalised by channel width (not vol). More binary — rapidly moves to ±1 when a new N-day high/low is made. Responds to price level extremes, not to the shape of the price path.
 
-### The rate data blocker
+**TSMOM** (time-series momentum): raw N-bar total return, unweighted and not vol-normalised. Captures the cumulative directional drift over the lookback period. Unlike EWMAC, equally weights all returns in the window; unlike Breakout, is sensitive to the magnitude of moves, not just their position in the range.
 
-The current `src/data/rates.py` contains hardcoded central bank rates starting from 2011. The IS window for a 40-year backtest runs from approximately 1984 to 2010. For the entire IS period, carry would return zero for every instrument, making it invisible to the calibration and useless in the FDM calculation.
+Expected within-trend correlations: 0.5–0.75 between EWMAC and Breakout or TSMOM at similar timescales; higher within the same algorithm family. All three form one trend meta-family. Step 3b will determine whether they are sufficiently decorrelated within the family to warrant separate sub-family weights, or whether EWMAC alone captures the signal adequately.
 
-FRED provides all the needed series with coverage reaching back to the 1960s–1990s:
+**Mean reversion excluded:** at the same timescale as trend rules, MR correlation with trend is approximately −0.9 — cancellation, not diversification. Excluded from the candidate set.
 
-| Currency | FRED series | Coverage |
+### Carry family
+
+Interest-rate or term-structure differential signal. Structurally orthogonal to price momentum (0.0–0.2 cross-family correlation empirically). Applied selectively:
+
+| Instruments | Carry signal | Notes |
 |---|---|---|
-| USD | FEDFUNDS | 1954+ |
-| EUR | ECBDFR | 1999+ (pre-1999: INTDSREZQ193N for DEM proxy) |
-| GBP | BOEBR | 1975+ |
-| JPY | IRSTCI01JPM156N | 1960+ |
-| AUD | RBATCTR | 1990+ |
-| CAD | IRSTCB01CAM156N | 1960+ |
+| FX (5 pairs) | Policy rate differential between currency legs | Clean signal; rates data in data/rates/policy_rates.csv |
+| Bonds (5 instruments) | Yield-to-maturity / roll-down carry | Clean signal; data/rates/bond_yields.csv |
+| Energy, Ags | Calendar spread (backwardation/contango) | Usable but noisier |
+| Equities (6) | Dividend yield minus funding rate | Weak, marginal; excluded |
+| Metals (3) | Lease rate / storage cost | Hard to measure for CFDs; excluded |
 
-CAD is needed for USDCAD, which is in the 25-instrument universe but not yet in `FX_CARRY_PAIRS`. All other currencies for the 5 FX instruments are already modelled.
+**Carry is not applied to equities or metals.**
 
-Note on EUR before 1999: EURUSD did not exist before the euro launch. The carry signal for EURUSD will naturally have no history before 1999 regardless of the rate proxy used. For GBPUSD, USDJPY, AUDUSD, USDCAD, history extends back to the mid-1970s onwards.
+### Seasonality family
 
----
+Calendar-driven signal, decorrelated from trend and carry by construction (no price information, no rate information). Applied only where documented supply/demand cycles exist:
 
-## Seasonality (flagged for future consideration)
+- **Ags (7 instruments):** planting/harvest calendar effects. Corn, Soybeans, and Wheat have US crop-year cycles; Coffee, Cocoa, and Sugar have tropical harvest cycles; Cotton has US planting cycle.
+- **Energy (2 instruments):** seasonal demand patterns (Gasoline: driving season; SpotCrude: winter heating + driving season).
 
-A calendar-based seasonality signal is genuinely orthogonal to price momentum — the forecast is driven by what month it is, not by recent price movement. It is structurally most appropriate for:
-
-- **Agricultural commodities** (Corn, Coffee, Cocoa, Sugar, Cotton): harvest/planting cycles produce repeatable seasonal price patterns. With 40 years of IS history, the statistical estimation is viable.
-- **NatGas**: very strong winter-demand seasonality. Also the instrument most likely to be structurally hostile to trend-following specifically (storage injection/withdrawal causes the sharp reversals that hurt EWMAC). A seasonality rule would be the natural alternative rule family for NatGas.
-- **Energy / SpotCrude**: weaker seasonal pattern but real (refinery maintenance cycles, summer driving demand).
-
-Implementation sketch: for each instrument, fit the mean return by calendar month over IS data (possibly as a Fourier series to enforce smoothness). Normalize to forecast scale. Signal updates once per month.
-
-Seasonality is not in scope for the current calibration pass — it needs new implementation in `src/rules/`. It is the recommended next addition once carry is working properly.
+Not applied to FX, bonds, equities, or metals (no structural calendar driver).
 
 ---
 
-## Proposed rule set
+## Candidate rule set for Step 3
 
-| Family | Variants | Rationale |
+### Trend sub-candidates
+
+| Rule | Lookback / speed | Approx timescale |
 |---|---|---|
-| `ewmac` | (8,32), (32,128), (64,256) | 3 well-separated trend speeds; drop (2,8), (4,16), (16,64) |
-| `breakout` | 20 | Short-term channel; lower correlation with slow EWMACs; drop 50, 100, 200 |
-| `carry` | 1 (rate differential) | Structurally orthogonal driver; FX instruments only |
-| ~~`mr`~~ | ~~dropped~~ | Structurally −EWMAC; not a genuine diversifier |
-| ~~`tsmom`~~ | ~~dropped~~ | Redundant with EWMAC; same factor, noisier proxy |
+| EWMAC_2_8 | fast | 1–2 weeks |
+| EWMAC_4_16 | fast | 2–4 weeks |
+| EWMAC_8_32 | fast-medium | 4–8 weeks |
+| EWMAC_16_64 | medium | 2–4 months |
+| EWMAC_32_128 | medium-slow | 4–6 months |
+| EWMAC_64_256 | slow | 6–12 months |
+| BREAKOUT_20 | ~1 month | matches EWMAC_4_16 timescale |
+| BREAKOUT_50 | ~2.5 months | between EWMAC_8_32 and EWMAC_16_64 |
+| BREAKOUT_100 | ~5 months | between EWMAC_16_64 and EWMAC_32_128 |
+| BREAKOUT_200 | ~10 months | matches EWMAC_64_256 timescale |
+| TSMOM_63 | 3 months | matches EWMAC_16_64 |
+| TSMOM_126 | 6 months | between EWMAC_32_128 and EWMAC_64_256 |
+| TSMOM_252 | 12 months | matches EWMAC_64_256 |
 
-Total: **5 rule variants** across 2 families with meaningfully different drivers.
+**Design notes:**
+- Very fast Breakout/TSMOM variants (sub-20 bars) excluded: high turnover fails cost filter for most instruments; signal too noisy.
+- The slow end (TSMOM_252, BREAKOUT_200, EWMAC_64_256) represents three algorithms at the same ~12-month timescale. Step 3b will show their mutual correlation — if all three are 0.85+, one or two can be dropped without loss.
+- EWMAC_2_8 and EWMAC_4_16 have no Breakout/TSMOM equivalents at that timescale — they are unique in the candidate set.
 
-### Expected correlation structure
+### Carry
 
-Within the trend family:
+Single carry rule per applicable instrument. Step 3a calibrates the scalar; Step 3b includes carry in the correlation matrix.
 
-| Pair | Expected correlation |
-|---|---|
-| EWMAC(8,32) vs EWMAC(32,128) | ~0.50 |
-| EWMAC(8,32) vs EWMAC(64,256) | ~0.30 |
-| EWMAC(32,128) vs EWMAC(64,256) | ~0.55 |
-| BREAKOUT(20) vs EWMAC(8,32) | ~0.40 |
-| BREAKOUT(20) vs EWMAC(32,128) | ~0.20 |
-| BREAKOUT(20) vs EWMAC(64,256) | ~0.15 |
+### Seasonality
 
-Cross-family:
-
-| Pair | Expected correlation |
-|---|---|
-| CARRY vs any EWMAC (FX instruments) | ~0.15–0.25 |
-| CARRY vs any EWMAC (non-FX) | 0.0 (zero signal) |
-
-### Preliminary forecast weights (for handcrafting)
-
-Two families: trend and carry. Equal weight at the family level (50/50) is a reasonable prior, given the two families are genuinely different in kind. Within the trend family, BREAKOUT(20) occupies its own sub-family distinct from the three EWMACs.
-
-```
-Trend family  (50%):
-    EWMAC sub-family (75% of trend = 37.5% total):
-        EWMAC_8_32:    ~12.5%
-        EWMAC_32_128:  ~12.5%
-        EWMAC_64_256:  ~12.5%
-    BREAKOUT sub-family (25% of trend = 12.5% total):
-        BREAKOUT_20:   ~12.5%
-
-Carry family  (50%):
-    CARRY:             ~50%
-```
-
-These are starting weights before handcrafting. The handcrafting step will adjust within-trend weights based on the actual observed correlation matrix. Because EWMAC(32,128) and EWMAC(64,256) are more correlated with each other (~0.55) than either is with EWMAC(8,32) (~0.30–0.50), the slow pair may end up slightly downweighted relative to the fast one.
-
-The 50% carry weight reflects the two-family structure (trend vs. non-trend), consistent with Carver's own treatment where carry as a separate family receives roughly equal standing to trend. In practice the effective carry contribution to the portfolio is smaller than 50% because it returns zero for 20 of the 25 instruments — the FDM per instrument corrects for this.
+Single seasonality rule per applicable instrument (instrument-specific monthly scalars calibrated in Step 3a).
 
 ---
 
-## Action items before calibration
+## Per-instrument-type weight structure (for Step 3d)
 
-1. **Extend `src/data/rates.py`** to cover 1984+:
-   - Load historical rates from FRED for USD, EUR, GBP, JPY, AUD, CAD
-   - EUR pre-1999: use German Bundesbank rate (`INTDSREZQ193N`) as a proxy; note the discontinuity at 1999 in the record
-   - Replace the hardcoded 2011-present table with FRED-sourced data from the earliest available date per currency
-   - CAD: add `IRSTCB01CAM156N` (or equivalent) — not currently in rates.py at all
+Different weight vectors are assigned by instrument type. Carry and seasonality receive nonzero weight only where applicable. FDM corrects for within-group correlation per instrument.
 
-2. **Add USDCAD to `FX_CARRY_PAIRS`** in `src/rules/carry.py`:
-   ```python
-   "USDCAD": ("USD", "CAD"),
-   ```
+| Instrument type | Instruments | Rule families |
+|---|---|---|
+| Equities | US500, NAS100, GER40, JPN225, HK50, UK100 | Trend only |
+| Metals | XAU, XAG, COPPER | Trend only |
+| FX | AUDUSD, GBPUSD, USDCAD, USDJPY, EURUSD | Trend + Carry |
+| Bonds | US2YR, US5YR, US10YR, US30YR, BUND | Trend + Carry |
+| Energy | SpotCrude, Gasoline | Trend + Seasonality |
+| Ags | Coffee, Cocoa, Sugar, Corn, Soybeans, Wheat, Cotton | Trend + Seasonality |
 
-3. **Update configs** to reflect the new rule set:
-   - Remove `tsmom` and `mr` blocks from the config
-   - `ewmac` pairs: `[[8,32],[32,128],[64,256]]`
-   - `breakout` lookbacks: `[20]`
-   - `carry` block: add with `carry: 1.0` as initial scalar placeholder
-   - Remove EURGBP from `FX_CARRY_PAIRS` since it is not in the 25-instrument universe
+Starting top-level family split for two-family instruments: 50% Trend / 50% Carry or Seasonality. Step 3b may revise this based on measured cross-family correlations.
 
-4. **Calibrate carry scalar** — `SCALARS["carry"] = 1.0` in `carry.py` is a placeholder. Once rate data is extended, run step 01 on IS data to calibrate the scalar so the mean absolute carry forecast equals 10.
+Within-trend weights and which trend sub-candidates to keep are determined entirely by Step 3b.
 
-5. **Run IS correlation matrix** on the proposed 5-rule set to confirm expected correlation structure before finalising weights.
+---
+
+## Step 3b outcome — Breakout and TSMOM dropped
+
+Pooled IS forecast correlation matrix (29 instruments, IS to 2010-01-01):
+
+- EWMAC_N ↔ BREAKOUT at matched timescale: **0.85–0.90** — structurally redundant
+- EWMAC_N ↔ TSMOM at matched timescale: **0.85–0.86** — structurally redundant
+- EWMAC_2_8 ↔ EWMAC_64_256: **0.10** — the timescale spread within EWMAC alone provides all within-trend diversification needed
+
+Breakout and TSMOM were dropped. Adding them would triple the complexity of the trend family for near-zero additional diversification benefit. The 6 EWMAC speeds span the full timescale range independently.
+
+Carry: corr with trend = −0.04 to +0.08 (orthogonal). Seasonality: corr with trend = −0.04 to +0.18 (orthogonal). Both retained.
+
+## Final rule set
+
+- **Trend**: EWMAC_4_16, EWMAC_8_32, EWMAC_16_64, EWMAC_32_128, EWMAC_64_256 (EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; fails cost ceiling for 11/27 instruments)
+- **Carry**: FX (5) and Bonds (5) only
+- **Seasonality**: Ags (7) and Energy (2) only

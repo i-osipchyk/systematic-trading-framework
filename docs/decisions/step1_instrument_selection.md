@@ -1,128 +1,128 @@
 # Step 1 — Instrument Selection
 
-**Date:** 2026-08-24  
-**Status:** Confirmed  
-**Config target:** to be created as `config/universe_25.yaml`
+**Date:** 2026-08-25
+**Status:** Confirmed
+**Config:** `config/universe_v2.yaml` (29 instruments, IS 1984–2010)
+
+---
+
+## Discipline
+
+Start broad, prune by structure only — never by performance.
+
+Correlation-based pruning is legitimate (structural property of the market, not fitted to returns). Performance-based pruning on IS data inflates apparent OOS SR by construction. The only permitted performance-based exclusion is persistent underperformance with an **independent economic explanation** that predates and explains the observed weakness.
 
 ---
 
 ## Candidate pool
 
-The repository contains 31 instruments across 6 asset groups, sourced from FRED, Quandl (Nasdaq Data Link), Yahoo Finance, and datahub.io. All have daily price history; most reach back to 1984–1992 via FRED/World Bank monthly series spliced with futures data.
+35 instruments with D1 price data in the repository. IS window ends 2010-01-01.
 
 ---
 
-## Selection criteria applied (in order)
+## Structural filters applied
 
-1. **Structural redundancy (correlation-based):** drop instruments that are largely derivable from others already in the set. Correlation between price series is a stable structural property, not a fitted result, so using it for exclusion does not contaminate in-sample data. All correlation reasoning here is intuition-based; empirical confirmation comes in the IS correlation analysis.
+### 1. No IS history → exclude
 
-2. **Diversification value:** within each group, keep instruments that represent meaningfully different drivers (monetary policy regime, geography, demand cycle). Correlated pairs are *not* dropped — they are retained and handled by giving them asymmetric weights in the handcrafting step (Phase 3).
+| Instrument | Reason |
+|---|---|
+| BTC, ETH | History starts 2017; zero IS bars |
+| US30, USOIL | History starts 2017; zero IS bars |
 
-3. **Cost feasibility:** not evaluated numerically here (that is Phase 4 cost filtering). Any instrument with an obviously prohibitive spread relative to its volatility would be flagged, but none in this set triggered that concern at this stage.
+### 2. Redundant construct → exclude
 
-4. **Practical tradability:** noted per instrument, but not used as an exclusion criterion for the backtest universe. Non-traded instruments still contribute to the IS correlation structure and backtest diversity. The distinction matters at Phase 7 (live preparation).
+| Instrument | Reason |
+|---|---|
+| USDX | Dollar Index ≈ 57% EUR + 14% JPY by weight; ~−0.95 correlated with EURUSD. Including both adds a near-inverse duplicate, not a new driver. |
+| EURGBP | Derived cross: EURUSD ÷ GBPUSD. With both legs in the universe, EURGBP carries no independent information. Short IS history (1999 start) reinforces exclusion. |
+
+### 3. Structural regime break → exclude
+
+| Instrument | Reason |
+|---|---|
+| NatGas | The US shale revolution (2008–2012) permanently broke the historical crude/gas price relationship and collapsed Henry Hub price dynamics. This is an independent structural change, not a performance observation. The IS window (2000–2010) partially spans the break, making IS scalars unreliable as forward estimates. |
+
+### 4. Cost check
+
+All remaining candidates have standardised cost per roundtrip well below 0.13 at typical slow-rule turnover (3–10 RT/yr). Detailed per-rule cost filtering is Step 3.
+
+### 5. IS history flags (included with caveat)
+
+| Instrument | IS bars | Note |
+|---|---|---|
+| EURUSD | 2,799 (11yr) | EUR launched 1999; shorter IS window than others |
+| Gasoline | 2,298 (10yr) | RBOB data from 2000; included despite high SpotCrude correlation (user decision — independent energy sub-component with different demand profile) |
 
 ---
 
 ## Decisions by group
 
-### FX — 5 kept, 2 dropped
+### FX — 5 instruments
 
-**Kept:** EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD
+**AUDUSD, GBPUSD, USDCAD, USDJPY, EURUSD**
 
-**Dropped:**
+All five retained. The previous run excluded AUDUSD, GBPUSD, USDCAD, and EURUSD based on validation-period SR (−0.39, −0.59, −0.05, −0.19). Those are OOS performance observations — invalid as Step 1 criteria.
 
-- **USDX:** The US Dollar Index is approximately 57% EUR and 14% JPY by weight. Its correlation with EURUSD is around −0.95 — it is structurally the near-inverse of EURUSD, not a separate instrument. Including it would be adding a near-duplicate with an inverted sign, not a new source of return.
+Structural correlation pairs: EURUSD/GBPUSD (~0.75), AUDUSD/USDCAD (~0.60). Both pairs retained; Step 4 handcrafting assigns lower combined weights to correlated clusters.
 
-- **EURGBP:** Fully derived from EURUSD ÷ GBPUSD. Given both legs are already in the set, EURGBP carries no information not already present. It would increase within-FX correlation without adding any new driver.
+### Equities — 6 instruments
 
-**Correlation structure within the kept set:**  
-EURUSD/GBPUSD (~0.75) and AUDUSD/USDCAD (~0.60) will form two natural sub-pairs. USDJPY partially decorrelates from EUR pairs in risk-off regimes (JPY safe-haven behaviour). The handcrafting in Phase 3 will assign lower combined weights to the correlated pairs; this is the correct outcome, not a signal to drop them.
+**US500, NAS100, GER40, JPN225, HK50, UK100**
 
----
+UK100 (FTSE 100) added: 40-year IS history (1984), Pepperstone-traded, different sector composition from GER40 (heavy energy/mining vs. export-industrial). UK/EU economic cycles partly decouple at currency level (GBP vs EUR). The previous run excluded UK100 on marginal-diversification grounds relative to GER40; with a clean structural approach and 40yr data, it belongs.
 
-### Equity indices — 5 kept, 1 dropped
+US500/NAS100 (~0.90 corr) and UK100/GER40 (~0.75 corr) are correlated pairs — handled in Step 4.
 
-**Kept:** US500, NAS100, GER40, JPN225, HK50
+### Bonds — 5 instruments
 
-**Dropped:**
+**US2YR, US5YR, US10YR, US30YR, BUND**
 
-- **UK100:** Correlation with GER40 is approximately 0.75, and with US500 approximately 0.70. UK100 adds some commodity/energy sector weight (BP, Shell, miners) that distinguishes it from GER40, but the marginal diversification over a universe that already includes GER40, JPN225, and HK50 is small. Given the equity group already carries five instruments — including the US500/NAS100 correlated pair — adding a sixth weakly-differentiated European index was not judged worthwhile.
+All five retained. The previous run excluded US2YR based on validation-period SR (−1.45, attributed to ZIRP). ZIRP began in 2009 and fully manifested in the 2010–2017 validation window — this is OOS data. US2YR has 26 years of IS history and low per-roundtrip cost; structural exclusion is not warranted.
 
-**Correlation structure within the kept set:**  
-US500/NAS100 (~0.90) are essentially one US equity bet split across two instruments. They will be assigned a small combined weight within the "US equities" sub-pair and a correspondingly larger weight to GER40, JPN225, and HK50. JPN225 partially decouples via JPY movements and domestic demand cycles. HK50 is driven by China policy and growth rather than Western monetary policy.
+All four US maturities handcrafted as one US-rates subgroup in Step 4. BUND is the only non-USD bond — primary fixed-income diversifier.
 
----
+### Metals — 3 instruments
 
-### Government bonds — 5 kept, 0 dropped
+**XAU, XAG, COPPER**
 
-**Kept:** US2YR, US5YR, US10YR, US30YR, BUND
+XAU/XAG (~0.75 corr) treated as precious-metals sub-pair with gold receiving larger weight. COPPER driven by industrial demand and China growth cycle — structurally independent from precious metals (gold/copper corr ~0.25–0.35).
 
-All five are currently marked `traded: false` in the repo, reflecting the absence of long historical CFD data. Pepperstone does offer Treasury and Bund CFDs; their inclusion in live trading depends on whether usable CFD price history can be obtained (see note below).
+### Energy — 2 instruments
 
-**Rationale for keeping all four US maturities:**  
-Within-curve correlation is high (0.70–0.90 between adjacent maturities), but over a 40-year IS window the term structure behaves differently across rate regimes: the 1980s disinflation, the 2000s low-rate era, and the post-2022 hiking cycle all produce meaningfully different duration dynamics. Capturing the full duration spread (2-year through 30-year) via four instruments is consistent with Carver's own multi-maturity approach. They will be handcrafted as a US-rates subgroup, with weight distributed by their mutual correlation.
+**SpotCrude, Gasoline**
 
-**BUND** is approximately 0.65 correlated with US10YR across most regimes (different central bank, different fiscal cycle) and represents the only non-USD bond in the set. It is the primary geographic diversifier within the fixed-income group.
+NatGas excluded (structural regime break — see above).
 
-**Note on bond tradability:**  
-BUND already has a `ctrader_symbol: EUROBUNDF` entry. US Treasury CFDs will need a liquidity/spread check on Pepperstone before being added to the live config. For now they are retained in the backtest universe and excluded from live position sizing via `traded: false`.
+Gasoline included despite ~0.80–0.85 correlation with SpotCrude. The correlation is high but Gasoline carries distinct demand signals (refinery margins, seasonal driving demand, US Gulf Coast supply dynamics) that can diverge from crude in supply-shock episodes. Included as second energy sub-instrument with lower weight than SpotCrude in Step 4.
 
----
+### Ags/Softs — 8 instruments
 
-### Metals — 3 kept, 0 dropped
+**Coffee, Cocoa, Sugar, Corn, Cotton, Soybeans, Wheat**
 
-**Kept:** XAU, XAG, COPPER
+Previous run included only Coffee, Cocoa, Sugar, Corn, Cotton (5 ags). Soybeans and Wheat dropped on correlation grounds (0.55–0.65 with Corn). This is correlation-based pruning on instruments that are genuinely structurally distinct:
 
-XAU (gold) and XAG (silver) are approximately 0.75 correlated and will be treated as a correlated sub-pair within the metals group, with gold receiving the larger weight. COPPER is driven primarily by industrial demand and the China growth cycle — a structurally different driver from precious metals. Gold/copper correlation is approximately 0.25–0.35, making it genuinely diversifying.
+- **Soybeans**: US acreage competes with corn but driven separately by global protein demand (China soy imports), biodiesel policy, and Southern Hemisphere harvest cycles. Corr with Corn ~0.55 — not so high as to justify exclusion given handcrafting will address it.
+- **Wheat**: Different geography (US winter vs spring wheat, plus European/Black Sea supply), different end use (food vs feed), partially decorrelated from Corn in weather-shock years. Corr with Corn ~0.60.
+- **Cocoa**: Previously excluded in the last run on IS performance grounds (IS SR −0.27). That exclusion was performance-based and illegitimate. 18 years of IS data; structurally independent tropical soft.
 
 ---
 
-### Energy — 2 kept, 1 dropped
-
-**Kept:** SpotCrude, NatGas
-
-**Dropped:**
-
-- **Gasoline:** Approximately 0.85+ correlated with SpotCrude (RBOB gasoline is a refined crude product; its price is almost fully explained by crude oil cost plus the crack spread). Non-traded in the current config. Including it would add a near-duplicate of SpotCrude with a narrower spread.
-
-**Note on NatGas:**  
-Historical runs have shown poor performance for NatGas under trend-following rules. This is structurally explicable: natural gas storage follows a predictable annual injection/withdrawal cycle that produces frequent sharp price reversals — exactly the pattern that hurts EWMAC-style rules via whipsaw. NatGas is retained in the candidate universe at this stage. If the IS backtest confirms persistent underperformance, the preferred response (per the framework's guidance) is to re-match it to a seasonality rule rather than dropping it outright. Performance-based exclusion on IS data alone would be premature.
-
----
-
-### Ags/Softs — 5 kept, 2 dropped
-
-**Kept:** Coffee, Cocoa, Sugar, Corn, Cotton
-
-**Dropped:**
-
-- **Wheat:** Approximately 0.55–0.65 correlated with Corn (both grains; both respond to US Midwest planting/weather and global food demand). Corn is preferred as the representative grain because it has larger contract liquidity and is already an anchor of the Carver-style soft-commodity group. Wheat adds less marginal diversification than Cocoa or Cotton.
-
-- **Soybeans:** Also approximately 0.55–0.65 correlated with Corn (US acreage competition; same growing season). The same logic as Wheat applies — keeping both Soybeans and Corn provides a pair of near-duplicates within an already-limited ag group.
-
-**Correlation structure within the kept set:**  
-Coffee, Cocoa, and Sugar are tropical softs with broadly independent supply dynamics (geographic separation, different weather exposures). Their mutual correlations are approximately 0.15–0.35. Cotton is a fiber crop with further separation from food commodities. Corn is the single grain representative. The five instruments will likely form a relatively flat sub-group without strong clustering pairs.
-
----
-
-## Final universe (25 instruments)
+## Final universe — 29 instruments
 
 | Group | Instruments | Count |
 |---|---|---|
-| FX | EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD | 5 |
-| Equity indices | US500, NAS100, GER40, JPN225, HK50 | 5 |
-| Government bonds | US2YR, US5YR, US10YR, US30YR, BUND | 5 |
-| Metals | XAU, XAG, COPPER | 3 |
-| Energy | SpotCrude, NatGas | 2 |
-| Ags/Softs | Coffee, Cocoa, Sugar, Corn, Cotton | 5 |
-| **Total** | | **25** |
+| FX | AUDUSD, GBPUSD, USDCAD, USDJPY, EURUSD | 5 |
+| Equities | US500, NAS100, GER40, JPN225, HK50, UK100 | 6 |
+| Bonds | US2YR, US5YR, US10YR, US30YR, BUND | 5 |
+| Precious metals | XAU, XAG | 2 |
+| Industrial metals | COPPER | 1 |
+| Energy | SpotCrude, Gasoline | 2 |
+| Ags/Softs | Coffee, Cocoa, Sugar, Corn, Cotton, Soybeans, Wheat | 7 |
+| **Total** | | **29** |
 
 ---
 
-## Preliminary handcrafting grouping tree
-
-The hierarchy below informs Phase 3 instrument weight calibration. Sub-pairs with high correlation (~0.75+) are flagged; they will receive asymmetric weights within their sub-group.
+## Handcrafting grouping tree (for Step 4)
 
 ```
 Portfolio
@@ -138,36 +138,43 @@ Portfolio
 │   ├── US equities
 │   │   ├── US500    (~0.90 corr pair)
 │   │   └── NAS100
-│   ├── GER40
+│   ├── European equities
+│   │   ├── GER40    (~0.75 corr pair)
+│   │   └── UK100
 │   ├── JPN225
 │   └── HK50
 ├── Bonds
 │   ├── US rates
 │   │   ├── US2YR
-│   │   ├── US5YR
+│   │   ├── US5YR    (~0.80–0.90 within-curve corr)
 │   │   ├── US10YR
 │   │   └── US30YR
 │   └── BUND
-├── Metals
-│   ├── Precious
-│   │   ├── XAU     (~0.75 corr pair)
+├── Commodities
+│   ├── Precious metals
+│   │   ├── XAU      (~0.75 corr pair)
 │   │   └── XAG
-│   └── COPPER
-├── Energy
-│   ├── SpotCrude
-│   └── NatGas
-└── Ags/Softs
-    ├── Coffee
-    ├── Cocoa
-    ├── Sugar
-    ├── Corn
-    └── Cotton
+│   ├── COPPER
+│   ├── Energy
+│   │   ├── SpotCrude  (~0.80 corr pair)
+│   │   └── Gasoline
+│   └── Ags/Softs
+│       ├── Grains
+│       │   ├── Corn     (~0.55–0.65 corr sub-group)
+│       │   ├── Soybeans
+│       │   └── Wheat
+│       └── Tropical softs
+│           ├── Coffee
+│           ├── Cocoa
+│           ├── Sugar
+│           └── Cotton
 ```
 
 ---
 
-## Open items for later steps
+## Open items for subsequent steps
 
-- **NatGas** — watch IS performance under trend rules; consider seasonality rule as an alternative if performance is structurally poor (Phase 2 rule selection).
-- **Bond CFD data** — verify whether Pepperstone US Treasury CFD history is long enough to include them in the walk-forward IS window; if not, they remain backtest-only.
-- **AUDUSD/USDCAD** — petrocurrency link means USDCAD will correlate positively with SpotCrude (~0.45) and AUDUSD will correlate with COPPER (~0.45). This cross-group correlation is acceptable given the handcrafting structure but should be noted when reviewing IDM.
+- **Gasoline ctrader symbol**: confirm Pepperstone symbol before marking `traded: true`.
+- **Soybeans / Wheat / Cocoa tradability**: verify Pepperstone availability; mark `traded: false` for backtest-only if not offered.
+- **EURUSD IS window**: only 11 years (1999–2010). Scalar calibration and correlation estimation are noisier. Note at Step 5 variance assessment.
+- **US2YR**: very low IS vol (2% ann). At the chosen vol target, position sizes will be large — verify minimum-lot feasibility at Step 4.

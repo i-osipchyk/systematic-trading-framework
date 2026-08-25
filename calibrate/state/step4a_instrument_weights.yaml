@@ -1,47 +1,49 @@
-# Individual instrument weights — 18-instrument universe
-# ─────────────────────────────────────────────────────────────────
-# Revised after validation analysis:
-#   Removed: EURUSD, GBPUSD, AUDUSD, USDCAD (FX group val SR -0.32)
-#            US2YR (val SR -1.43, ZIRP rate pin)
-#            NatGas (val SR -0.58, shale regime shift)
-#            Cocoa  (val SR -0.84, never had trend edge)
+# Instrument weights — Step 4 (correlation-based hierarchical handcrafting)
+# ─────────────────────────────────────────────────────────────────────────
+# Weights derived from IS vol-normalised return correlations.
+# At each level of the tree, siblings are weighted by 1/(1+mean_sibling_corr),
+# so correlated clusters share a smaller combined budget.
+# Tree: docs/decisions/step1_instrument_selection.md
 #
-# Group allocations:
-#   FX (8%):          1 instrument  — USDJPY sole unit
-#   Equities (28%):   5 instruments — US pair (corr ~0.90) + 3 intl
-#   Bonds (22%):      4 instruments — US curve (corr ~0.90) + BUND
-#   Commodities (42%): 8 instruments — precious / industrial / energy / ags
+# IS window: up to 2010-01-01
+#
+# Manual adjustment applied after correlation computation:
+#   BUND: 13.0% → 6.0%  (−7%: too large as a single instrument vs 4 US maturities)
+#   Each ag +1%  (7 ags × 1% = +7%: ags were operationally tiny at <1% each)
+#
+# Group totals after adjustment:
+#   FX: 24.7%  |  Equities: 24.8%  |  Bonds: 19.0%  |  Commodities: 31.5%
 #
 instrument_weights:
-  # ── FX (sum: 8.00%) ───────────────────────────────────────────
-  USDJPY:    0.0800   # sole FX instrument; BoJ policy-driven trends
-
-  # ── Equities (sum: 28.00%) ────────────────────────────────────
-  # US equities: US500 + NAS100 as one unit (corr ~0.90) → 8% shared
-  US500:     0.0400
-  NAS100:    0.0400
-  GER40:     0.0667   # independent European unit
-  JPN225:    0.0667   # independent Asian unit
-  HK50:      0.0666   # independent Asia/China unit
-
-  # ── Bonds (sum: 22.00%) ───────────────────────────────────────
-  # US curve: 3 maturities, highly correlated → 10% shared equally
-  US5YR:     0.0333
-  US10YR:    0.0333
-  US30YR:    0.0334
-  # BUND: sole European bond, independent from US curve
-  BUND:      0.1200
-
-  # ── Commodities (sum: 42.00%) ─────────────────────────────────
-  # Precious metals sub-group (12%): XAU leads, XAG correlated (0.70)
-  XAU:       0.0800
-  XAG:       0.0400
-  # Industrial metal sub-group (6%)
-  COPPER:    0.0600
-  # Energy sub-group (8%): SpotCrude sole energy instrument
-  SpotCrude: 0.0800
-  # Agricultural softs sub-group (16%): 4 uncorrelated instruments
-  Coffee:    0.0400
-  Sugar:     0.0400
-  Corn:      0.0400
-  Cotton:    0.0400
+  # ── FX (24.7%) ──────────────────────────────
+  EURUSD: 0.042435
+  GBPUSD: 0.042435
+  AUDUSD: 0.035287
+  USDCAD: 0.035287
+  USDJPY: 0.092054
+  # ── Equities (24.8%) ──────────────────────────────
+  US500: 0.032503
+  NAS100: 0.032503
+  GER40: 0.029508
+  UK100: 0.029508
+  JPN225: 0.062372
+  HK50: 0.061486
+  # ── Bonds (19.0%) ──────────────────────────────
+  US2YR: 0.032442
+  US5YR: 0.032442
+  US10YR: 0.032442
+  US30YR: 0.032442
+  BUND: 0.059766
+  # ── Commodities (31.5%) ──────────────────────────────
+  XAU: 0.029928
+  XAG: 0.029928
+  COPPER: 0.060387
+  SpotCrude: 0.032078
+  Gasoline: 0.032078
+  Corn: 0.020115
+  Soybeans: 0.020115
+  Wheat: 0.020115
+  Coffee: 0.017586
+  Cocoa: 0.017586
+  Sugar: 0.017586
+  Cotton: 0.017586

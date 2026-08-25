@@ -1,22 +1,21 @@
 # Volatility target configuration
 # ─────────────────────────────────────────────────────────────────
-# Full calibrated backtest results (clean data, DST fix applied):
-#   IS Sharpe  (1984–2010) : 0.91
-#   OOS Sharpe (2010–2026) : ~0.00
-#   OOS Max Drawdown       : -39.7%
+# IS Sharpe (28-instrument, 5 EWMAC + Carry + Seasonality): 0.94
 #
-# IS SR is exceptional (falling rates, high vol, strong trends) and will
-# not repeat.  OOS ~0 reflects the CTA winter (2010-2020 ZIRP, tight FX).
-# Realistic SR estimate: 0.50 × IS = 0.45 (50% IS haircut, standard Carver).
+# Kelly analysis (step5a, ×0.75 IS haircut):
+#   Realistic SR      : 0.70
+#   Full Kelly        : 70%  (unrealistically high — IS SR overstated)
+#   Half Kelly        : 35%
 #
-# Kelly at realistic SR = 0.45:
-#   Full Kelly vol_target  : ~27%   (SR × 0.6 rule of thumb)
-#   Half Kelly vol_target  : ~13.5%
-#   With OOS capped at 0:  conservative → 15% is appropriate
+# Conservative Kelly (×0.50 IS haircut, standard for trend-following):
+#   Realistic SR      : 0.47
+#   Full Kelly        : 47%
+#   Half Kelly        : 23.5%
 #
-# 15% is in line with Carver's recommended range (10-25%) and sits between
-# half-Kelly (13.5%) and the common institutional default.
+# 20% chosen: sits at half-Kelly under the 50% IS haircut.
+# In line with Carver's standard retail benchmark (10–25% range).
+# Robust to IS SR being overstated vs. live performance.
 #
-# Range: 0.02 to 0.50 (e.g. 0.15 = 15%)
+# Range: 0.02 to 0.50
 #
-vol_target: 0.15
+vol_target: 0.20

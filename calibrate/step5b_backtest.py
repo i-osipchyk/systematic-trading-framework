@@ -97,57 +97,41 @@ def main(state_dir=None) -> None:
             w = instrument_weights_raw.get(code, 0.0)
             print(f"  {code:<10} {result.fdms[code]:>6.3f} {w:>8.1%}")
 
-    # ── Three-period split: IS / Validation / Test ───────────────────────────
-    split      = result.split_date
-    test_start = pd.Timestamp("2018-01-01")
-
-    def _slice(series, start=None, end=None):
-        s = series
-        if start is not None:
-            s = s[s.index >= start]
-        if end is not None:
-            s = s[s.index < end]
-        return s
-
-    is_pnl  = _slice(result.is_pnl)
-    val_pnl = _slice(result.oos_pnl, end=test_start)
-    tst_pnl = _slice(result.oos_pnl, start=test_start)
+    # ── IS performance only ───────────────────────────────────────────────────
+    # OOS data (val / test) is NOT examined at this step. All five parameters
+    # are locked first; OOS validation runs exactly once afterward as a
+    # separate one-shot step (calibrate/oos_validation.py).
+    split = result.split_date
+    is_pnl = result.is_pnl
 
     print()
-    print(f"  Portfolio performance:")
+    print(f"  IS portfolio performance:")
     print(f"  {'Period':<12} {'Sharpe':>8} {'Ann Ret':>9} {'Max DD':>9} {'Bars':>6}")
     print(f"  {'─'*50}")
-    for label, pnl in [("IS 84–10", is_pnl), ("Val 10–17", val_pnl), ("Test 18–26", tst_pnl)]:
-        m = performance_report(pnl, result.capital, label=label)
-        n = len(pnl.dropna())
-        print(f"  {label:<12} {m['sharpe']:>8.2f} {m['ann_return']:>8.1%}"
-              f" {m['max_drawdown']:>8.1%} {n:>6}")
+    m = performance_report(is_pnl, result.capital, label="IS")
+    n = len(is_pnl.dropna())
+    print(f"  {'IS 84–10':<12} {m['sharpe']:>8.2f} {m['ann_return']:>8.1%}"
+          f" {m['max_drawdown']:>8.1%} {n:>6}")
 
-    # ── Per-instrument breakdown ──────────────────────────────────────────────
+    # ── Per-instrument IS breakdown ───────────────────────────────────────────
     print()
-    print(f"  Per-instrument breakdown (IS | Val 10–17 | Test 18–26):")
-    hdr = (f"  {'Code':<10} {'SR IS':>7} {'SR Val':>7} {'SR Test':>8}"
-           f" {'Ret IS':>8} {'Ret Val':>8} {'Ret Tst':>8} {'TV':>6}")
+    print(f"  Per-instrument IS breakdown:")
+    hdr = (f"  {'Code':<10} {'SR IS':>7} {'Ret IS':>8} {'Max DD':>8} {'TV':>6}")
     print(hdr)
     print(f"  {'─'*len(hdr.rstrip())}")
 
     for code, ir in result.instrument_results.items():
-        is_net  = _slice(ir.net_pnl_usd, end=split)
-        val_net = _slice(ir.net_pnl_usd, start=split, end=test_start)
-        tst_net = _slice(ir.net_pnl_usd, start=test_start)
-        is_pos  = _slice(ir.positions, end=split)
+        is_net = ir.net_pnl_usd[ir.net_pnl_usd.index < split]
+        is_pos = ir.positions[ir.positions.index < split]
 
-        is_m  = performance_report(is_net,  result.capital)
-        val_m = performance_report(val_net, result.capital)
-        tst_m = performance_report(tst_net, result.capital)
-        tv    = annual_turnover(is_pos)
+        is_m = performance_report(is_net, result.capital)
+        tv   = annual_turnover(is_pos)
 
-        print(f"  {code:<10} {is_m['sharpe']:>7.2f} {val_m['sharpe']:>7.2f}"
-              f" {tst_m['sharpe']:>8.2f}"
-              f" {is_m['ann_return']:>7.1%} {val_m['ann_return']:>7.1%}"
-              f" {tst_m['ann_return']:>7.1%} {tv:>6.1f}")
+        print(f"  {code:<10} {is_m['sharpe']:>7.2f}"
+              f" {is_m['ann_return']:>7.1%} {is_m['max_drawdown']:>7.1%} {tv:>6.1f}")
 
     print(f"\n  SR = post-cost Sharpe  TV = IS roundtrips/year")
+    print(f"  OOS not shown — locked after Step 5; run oos_validation.py separately.")
 
 
 if __name__ == "__main__":

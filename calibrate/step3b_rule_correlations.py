@@ -31,44 +31,48 @@ from src.rules.combine import combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
-# ── Family structure for handcrafting ────────────────────────────────────────
-# Each entry: (family_name, [list of sub-families])
-# A sub-family is a list of rule names that are grouped together before being
-# combined with siblings.  Equal weight is assumed at every level.
+# ── Candidate rule set — set after Step 3b correlation analysis ───────────────
 #
-# Trend family has two sub-families: EWMACs (fast-biased internally) + BREAKOUT.
-# The EWMAC sub-family itself has two layers: fast (8_32) and slow pair (32_128,
-# 64_256), reflecting the higher 32_128/64_256 correlation (~0.55 vs ~0.40).
+# Trend candidates: 6 EWMAC speeds + 4 Breakout lookbacks + 3 TSMOM lookbacks.
+# Carry and Seasonality are applied per-instrument-type (see Step 2 decision doc).
 #
-# Carry and Seasonality are each single-rule families.
+# FAMILY_WEIGHTS and FAMILY_STRUCTURE below are PROVISIONAL — they are used to
+# produce a suggested weight breakdown for reference after the correlation matrix
+# is printed. Adjust them once you have reviewed the actual correlations.
 #
-# Family-level weights: Trend 50%, Carry 25%, Seasonality 25%.
-# Adjust FAMILY_WEIGHTS if the IS correlation data suggests a different split.
+# Provisional structure:
+#   Trend     → 3 sub-groups: fast EWMAC, slow EWMAC, channel/momentum
+#   Carry     → single rule (FX + bonds only)
+#   Seasonality → single rule (ags + energy only)
+#
+# Note: per-instrument-type weights (e.g. equities get 100% trend, FX gets
+# 50% trend / 50% carry) are set in step3d_forecast_weights.yaml, not here.
+# The weight suggestions below assume a generic 3-family instrument. Use them
+# only as a starting point for handcrafting discussion.
 
 FAMILY_WEIGHTS: dict[str, float] = {
-    "Trend": 0.50,
-    "Carry": 0.25,
+    "Trend":       0.50,
+    "Carry":       0.25,
     "Seasonality": 0.25,
 }
 
-# Hierarchical structure within each family.
-# Each list element is a "sub-family" — rules within it get equal weight at
-# that level.  Single-element lists mean the rule has no siblings.
 FAMILY_STRUCTURE: dict[str, list[list[str]]] = {
     "Trend": [
-        # Three EWMAC speeds, each a separate sub-family (equal weight within Trend)
+        # Each EWMAC speed is its own sub-family — equal weight within Trend.
+        # EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; fails cost ceiling 11/27 instruments.
+        ["EWMAC_4_16"],
         ["EWMAC_8_32"],
+        ["EWMAC_16_64"],
         ["EWMAC_32_128"],
         ["EWMAC_64_256"],
     ],
-    "Carry": [["CARRY"]],
+    "Carry":       [["CARRY"]],
     "Seasonality": [["SEASONALITY"]],
 }
 
-# Within-family weights: equal split across the three trend sub-families
 SUBFAM_WEIGHTS: dict[str, list[float]] = {
-    "Trend": [1/3, 1/3, 1/3],
-    "Carry": [1.0],
+    "Trend":       [1/5, 1/5, 1/5, 1/5, 1/5],
+    "Carry":       [1.0],
     "Seasonality": [1.0],
 }
 
