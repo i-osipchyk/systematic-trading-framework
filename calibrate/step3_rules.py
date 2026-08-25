@@ -7,11 +7,11 @@ Sub-steps run in sequence:
   3c: IS turnover per rule; per-instrument cost-danger flags
   3d: Forecast weights template written to run directory for editing
 
-Outputs written to run_dir:
-  step3a_scalars.yaml          — per-rule IS scalars
-  step3c_turnover.yaml         — per-rule IS turnover
-  step3d_forecast_weights.yaml — weights template (EDIT BEFORE STEP 4)
-  step3_report.md              — markdown report with all tables
+Outputs written to config/:
+  step3.yaml  (sections: scalars, turnover, forecast_weights, fdm)
+
+Outputs written to results/:
+  step3_report.md  — markdown report with all tables
 
 Usage:
     uv run python calibrate/step3_rules.py
@@ -369,17 +369,12 @@ def _write_weights_template(
         per_rule = per_family / n if n else 0.0
         lines.append(f"#   {family} ({n} rules): {per_rule:.6f} per rule")
 
-    lines += ["", "forecast_weights:"]
-    for family, rules in family_to_rules.items():
-        n = len(rules)
-        lines.append(f"  # ── {family} (family: {per_family:.4f} / {n} rules)")
-        for rule in rules:
-            lines.append(f"  {rule}: {weights[rule]}")
+    if st.has_section("step3.yaml", "forecast_weights", state_dir=state_dir):
+        print("  Forecast weights section already exists in step3.yaml — skipping template.")
+        return st.path("step3.yaml", state_dir=state_dir)
 
-    path = st.path("step3d_forecast_weights.yaml", state_dir=state_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n")
-    return path
+    st.save_section("step3.yaml", "forecast_weights", weights, state_dir=state_dir)
+    return st.path("step3.yaml", state_dir=state_dir)
 
 
 # ── Printing helpers ──────────────────────────────────────────────────────────
@@ -471,7 +466,9 @@ def _write_report(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main(state_dir=None, split_date=None) -> dict:
+def main(state_dir=None, split_date=None, report_dir=None) -> dict:
+    if report_dir is None:
+        report_dir = state_dir
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
     rules = load_rules_config()
@@ -486,7 +483,7 @@ def main(state_dir=None, split_date=None) -> dict:
     # ── 3a: Scalars ───────────────────────────────────────────────────────────
     print("  [3a] Computing scalars...")
     scalars_data = _compute_scalars(instruments, rules, split_date)
-    st.save("step3a_scalars.yaml", scalars_data, state_dir=state_dir)
+    st.save_section("step3.yaml", "scalars", scalars_data, state_dir=state_dir)
 
     scalar_rows: list[tuple] = []
     for block, raw in scalars_data.items():
@@ -520,9 +517,9 @@ def main(state_dir=None, split_date=None) -> dict:
         instruments, cfgs, scalars_data, split_date, bars_per_year, fx_prices,
     )
 
-    st.save("step3c_turnover.yaml", {
-        "rules": {k: round(v, 2) for k, v in pooled_turnover.items()},
-    }, state_dir=state_dir)
+    st.save_section("step3.yaml", "turnover",
+                    {k: round(v, 2) for k, v in pooled_turnover.items()},
+                    state_dir=state_dir)
 
     cost_rows: list[tuple] = []
     all_rule_names = _rule_names_from_scalars(scalars_data)
@@ -583,18 +580,17 @@ def main(state_dir=None, split_date=None) -> dict:
         print(f"  {rule:<{ww}} {w:>8.4f}")
 
     # ── Markdown report ────────────────────────────────────────────────────────
-    report_path = st.path("step3_report.md", state_dir=state_dir)
+    report_path = st.path("step3_report.md", state_dir=report_dir)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
     _write_report(report_path, scalar_rows, corr, cost_rows, weights, n_instruments=len(instruments))
 
     # ── Summary ────────────────────────────────────────────────────────────────
-    print(f"\n  Saved:")
-    print(f"    {st.path('step3a_scalars.yaml', state_dir=state_dir)}")
-    print(f"    {st.path('step3c_turnover.yaml', state_dir=state_dir)}")
-    print(f"    {weights_path}")
-    print(f"    {report_path}")
+    step3_path = st.path("step3.yaml", state_dir=state_dir)
+    print(f"\n  Saved: {step3_path}  (sections: scalars, turnover, forecast_weights)")
+    print(f"  Saved: {report_path}")
 
-    print(f"\n  ACTION: review the tables above, then edit:")
-    print(f"    {weights_path}")
+    print(f"\n  ACTION: review the tables above, then edit forecast_weights in:")
+    print(f"    {step3_path}")
     print(f"  Adjust weights for correlated or expensive rules, then press Enter...")
 
     try:
@@ -605,9 +601,8 @@ def main(state_dir=None, split_date=None) -> dict:
 
     # ── 3e: FDM (automatic, runs after user confirms weights) ──────────────────
     print("  [3e] Computing FDM from confirmed weights...")
-    confirmed_weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
     rule_weights: dict[str, float] = {
-        k: float(v) for k, v in confirmed_weights_data["forecast_weights"].items()
+        k: float(v) for k, v in st.load_section("step3.yaml", "forecast_weights", state_dir=state_dir).items()
     }
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
 
@@ -630,21 +625,19 @@ def main(state_dir=None, split_date=None) -> dict:
         rule_cols = [c for c in fc_is.columns if c != "combined"]
         fdms[code] = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
 
-    st.save("step3d_fdm.yaml", {code: round(fdm, 4) for code, fdm in fdms.items()},
-            state_dir=state_dir)
+    st.save_section("step3.yaml", "fdm",
+                    {code: round(fdm, 4) for code, fdm in fdms.items()},
+                    state_dir=state_dir)
 
-    fdm_path = st.path("step3d_fdm.yaml", state_dir=state_dir)
     fw = max(len(c) for c in fdms) + 2 if fdms else 14
     print(f"\n  {'Instrument':<{fw}} {'FDM':>6}")
     print(f"  {'─' * (fw + 8)}")
     for code, fdm in fdms.items():
         print(f"  {code:<{fw}} {fdm:>6.3f}")
-    print(f"\n  Saved: {fdm_path}")
+    print(f"\n  Saved: {step3_path}  (sections: scalars, turnover, forecast_weights, fdm)")
 
     return {
-        "scalars_saved": str(st.path("step3a_scalars.yaml", state_dir=state_dir)),
-        "weights_confirmed": str(weights_path),
-        "fdm_saved": str(fdm_path),
+        "state": str(step3_path),
         "report": str(report_path),
     }
 
@@ -658,4 +651,4 @@ if __name__ == "__main__":
     root = Path(__file__).parents[1]
     system_dir = root / args.system
     set_config(system_dir / "config")
-    main(state_dir=system_dir / "results")
+    main(state_dir=system_dir / "config", report_dir=system_dir / "results")

@@ -22,13 +22,18 @@ def set_config(path: str | Path) -> None:
     CONFIG_PATH = Path(path)
 
 
+_CONFIG_FILES = ("base.yaml", "instruments.yaml", "rules.yaml")
+
+
 def _load_raw() -> dict:
     p = CONFIG_PATH
     if p.is_dir():
         merged: dict = {}
-        for f in sorted(p.glob("*.yaml")):
-            with open(f) as fh:
-                merged.update(yaml.safe_load(fh) or {})
+        for name in _CONFIG_FILES:
+            f = p / name
+            if f.exists():
+                with open(f) as fh:
+                    merged.update(yaml.safe_load(fh) or {})
         return merged
     with open(p) as f:
         return yaml.safe_load(f)

@@ -6,14 +6,11 @@ per-instrument and portfolio-level IS results, then computes Kelly / half-Kelly
 / geometric-mean vol target suggestions and asks the user to confirm one.
 
 INPUT STATE FILES:
-  - step3a_scalars.yaml            (from step 3)
-  - step3d_forecast_weights.yaml   (from step 3)
-  - step3d_fdm.yaml                (from step 3)
-  - step4a_instrument_weights.yaml (from step 4)
-  - step4b_idm.yaml                (from step 4)
+  - step3.yaml  (sections: scalars, forecast_weights, fdm)
+  - step4.yaml  (sections: instrument_weights, idm)
 
 OUTPUT STATE FILES:
-  - step5_vol_target.yaml
+  - step5.yaml
       vol_target: float
 
 Usage:
@@ -42,26 +39,23 @@ from src.backtest.metrics import annual_turnover, performance_report
 from src.calibration import state as st
 from src.rules.registry import REGISTRY
 
-FILENAME = "step5_vol_target.yaml"
+FILENAME = "step5.yaml"
 _VOL_PLACEHOLDER = 0.20   # SR is scale-invariant; placeholder for IS run
 
 
-def main(state_dir=None) -> dict:
-    scalars_data   = st.load("step3a_scalars.yaml",           state_dir=state_dir)
-    weights_data   = st.load("step3d_forecast_weights.yaml",  state_dir=state_dir)
-    fdm_data       = st.load("step3d_fdm.yaml",               state_dir=state_dir)
-    inst_w_data    = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
-    idm_data       = st.load("step4b_idm.yaml",               state_dir=state_dir)
+def main(state_dir=None, report_dir=None) -> dict:
+    if report_dir is None:
+        report_dir = state_dir
+    scalars_data       = st.load_section("step3.yaml", "scalars",           state_dir=state_dir)
+    forecast_weights   = st.load_section("step3.yaml", "forecast_weights",   state_dir=state_dir)
+    calibrated_fdms    = {k: float(v) for k, v in
+                          st.load_section("step3.yaml", "fdm", state_dir=state_dir).items()}
+    instrument_weights = {k: float(v) for k, v in
+                          st.load_section("step4.yaml", "instrument_weights", state_dir=state_dir).items()}
+    idm = float(st.load_section("step4.yaml", "idm", state_dir=state_dir))
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
-    rule_weights: dict[str, float] = {
-        k: float(v) for k, v in weights_data["forecast_weights"].items()
-    }
-    calibrated_fdms: dict[str, float] = {k: float(v) for k, v in fdm_data.items()}
-    instrument_weights: dict[str, float] = {
-        k: float(v) for k, v in inst_w_data["instrument_weights"].items()
-    }
-    idm = float(idm_data["idm"])
+    rule_weights: dict[str, float] = {k: float(v) for k, v in forecast_weights.items()}
     capital = load_capital()
 
     cfgs = load_instrument_configs()
@@ -148,30 +142,12 @@ def main(state_dir=None) -> dict:
     print(f"  → lean toward Full Kelly rather than Half")
 
     # ── Write vol target template ─────────────────────────────────────────────
-    if not st.exists(FILENAME, state_dir=state_dir):
-        content = (
-            "# Volatility target — Step 5\n"
-            "# ─────────────────────────────────────────────────────────────────\n"
-            "# Edit vol_target below and press Enter in the terminal.\n"
-            "#\n"
-            f"# IS Sharpe (after costs) : {is_sharpe:.2f}\n"
-            f"# Realistic SR (×0.75)    : {realistic_sr:.2f}\n"
-            f"#\n"
-            f"# Full Kelly              : {full_kelly:.2%}\n"
-            f"# Half Kelly              : {half_kelly:.2%}\n"
-            f"# Geometric mean          : {geo_mean:.2%}  (√full×half)\n"
-            f"# Suggested (cap 40%)     : {suggested:.2%}  ← pre-filled\n"
-            "#\n"
-            "# Range: 0.02 – 0.50\n"
-            "#\n"
-            f"vol_target: {suggested:.2f}\n"
-        )
-        path = st.path(FILENAME, state_dir=state_dir)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-        print(f"\n  Wrote template → {path}")
+    if not st.has_section(FILENAME, "vol_target", state_dir=state_dir):
+        st.save_section(FILENAME, "vol_target", round(suggested, 2), state_dir=state_dir)
+        print(f"\n  Wrote vol_target section → {st.path(FILENAME, state_dir=state_dir)}")
 
-    print(f"\n  Edit {st.path(FILENAME, state_dir=state_dir)}")
+    step5_path = st.path(FILENAME, state_dir=state_dir)
+    print(f"\n  Edit vol_target in: {step5_path}")
     print(f"  then press Enter to confirm...")
 
     vol_target: float | None = None
@@ -181,10 +157,7 @@ def main(state_dir=None) -> dict:
         except (KeyboardInterrupt, EOFError):
             print("\n  Aborted.")
             sys.exit(1)
-        if not st.exists(FILENAME, state_dir=state_dir):
-            print("  ERROR: file not found.")
-            continue
-        data = yaml.safe_load(st.path(FILENAME, state_dir=state_dir).read_text())
+        data = yaml.safe_load(step5_path.read_text()) or {}
         vt = data.get("vol_target")
         if not isinstance(vt, (int, float)):
             print("  ERROR: vol_target must be a number.")
@@ -224,10 +197,10 @@ def main(state_dir=None) -> dict:
               f"| Suggested (capped at 40%) | {suggested:.2%} |",
               f"| **Confirmed vol target** | **{vol_target:.2%}** |", ""]
 
-    report_path = st.path("step5_report.md", state_dir=state_dir)
+    report_path = st.path("step5_report.md", state_dir=report_dir)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines))
-    print(f"  Saved: {st.path(FILENAME, state_dir=state_dir)}")
+    print(f"  Saved: {step5_path}")
     print(f"  Saved: {report_path}")
 
     return {
@@ -248,4 +221,4 @@ if __name__ == "__main__":
     root = Path(__file__).parents[1]
     system_dir = root / args.system
     set_config(system_dir / "config")
-    main(state_dir=system_dir / "results")
+    main(state_dir=system_dir / "config", report_dir=system_dir / "results")

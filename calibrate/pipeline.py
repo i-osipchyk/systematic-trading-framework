@@ -40,21 +40,22 @@ STEP_LINE = "─" * 60
 
 @dataclass
 class Step:
-    number: str        # matches system-build-steps.md: '0', '3', '4a', '4b', '5', 'oos'
+    number: str           # matches system-build-steps.md: '0', '1', '2', '3', '4', '5', 'oos'
     module: str
     output_file: str | None
+    completion_key: str | None  # if set, output_file must also contain this top-level key
     requires_user: bool
     description: str
 
 
-# Steps 1 (instrument choice) and 2 (rule selection) are manual offline decisions.
 STEPS: list[Step] = [
-    Step("0",   "calibrate.step0_fetch_data",          None,                             False, "Step 0   — Fetch / update market data"),
-    Step("3",   "calibrate.step3_rules",               "step3d_fdm.yaml",                True,  "Step 3   — Rule correlations, trading speed, forecast weights [USER EDITS]"),
-    Step("4a",  "calibrate.step4a_instrument_weights", "step4a_instrument_weights.yaml", True,  "Step 4a  — Instrument weights [USER INPUT]"),
-    Step("4b",  "calibrate.step4b_idm",                "step4b_idm.yaml",                False, "Step 4b  — Compute IDM"),
-    Step("5",   "calibrate.step5_calibrate",           "step5_vol_target.yaml",          True,  "Step 5   — IS backtest and volatility target [USER CONFIRMS]"),
-    Step("oos", "calibrate.oos_validation",            None,                             False, "OOS      — IS vs Val SR breakdown (run after locking all steps)"),
+    Step("0",   "calibrate.step0_fetch_data",          None,          None,          False, "Step 0   — Fetch / update market data"),
+    Step("1",   "calibrate.step1_instruments",         "step1.yaml",  None,          True,  "Step 1   — Instrument choice [USER CONFIRMS]"),
+    Step("2",   "calibrate.step2_rules",               "step2.yaml",  None,          True,  "Step 2   — Rule selection [USER CONFIRMS]"),
+    Step("3",   "calibrate.step3_rules",               "step3.yaml",  "fdm",         True,  "Step 3   — Rule correlations, trading speed, forecast weights [USER EDITS]"),
+    Step("4",   "calibrate.step4a_instrument_weights", "step4.yaml",  "idm",         True,  "Step 4   — Instrument weights and IDM [USER INPUT]"),
+    Step("5",   "calibrate.step5_calibrate",           "step5.yaml",  "vol_target",  True,  "Step 5   — IS backtest and volatility target [USER CONFIRMS]"),
+    Step("oos", "calibrate.oos_validation",            None,          None,          False, "OOS      — IS vs Val SR breakdown (run after locking all steps)"),
 ]
 
 
@@ -67,35 +68,35 @@ def _import_step(module_name: str):
     return mod
 
 
-def _all_steps_complete(steps: list[Step], results_dir: Path) -> bool:
-    return all(
-        s.output_file is None or st.exists(s.output_file, state_dir=results_dir)
-        for s in steps
-    )
+def _step_done(step: Step, config_dir: Path) -> bool:
+    if step.output_file is None:
+        return False
+    if not st.exists(step.output_file, state_dir=config_dir):
+        return False
+    if step.completion_key:
+        return st.has_section(step.output_file, step.completion_key, state_dir=config_dir)
+    return True
 
 
-def _print_status_header(steps: list[Step], only_step: str | None, results_dir: Path) -> None:
+def _all_steps_complete(steps: list[Step], config_dir: Path) -> bool:
+    return all(_step_done(s, config_dir) for s in steps)
+
+
+def _print_status_header(steps: list[Step], only_step: str | None, config_dir: Path) -> None:
     print(f"\n  Calibration Pipeline")
-    print(f"  Steps 1 (instrument choice) and 2 (rule selection) are manual — see system-build-steps.md")
-    print(f"  Results: {results_dir}/")
     print(f"  {STEP_LINE}")
     for step in steps:
-        done = step.output_file is not None and st.exists(step.output_file, state_dir=results_dir)
-        status = "DONE   " if done else "PENDING"
+        status = "DONE   " if _step_done(step, config_dir) else "PENDING"
         user_tag = " [user input]" if step.requires_user else ""
         skip_tag = " [skip]" if only_step is not None and step.number != only_step else ""
         print(f"  {step.description:52s} {status}{user_tag}{skip_tag}")
     print(f"  {STEP_LINE}\n")
 
 
-def _should_run(step: Step, only_step: str | None, force: bool, results_dir: Path) -> bool:
+def _should_run(step: Step, only_step: str | None, config_dir: Path) -> bool:
     if only_step is not None:
         return step.number == only_step
-    if force:
-        return True
-    if step.output_file is not None and st.exists(step.output_file, state_dir=results_dir):
-        return False
-    return True
+    return not _step_done(step, config_dir)
 
 
 def _log_step_values(step: Step, values: dict, results_dir: Path) -> None:
@@ -164,7 +165,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true",
                         help="Delete existing results and rerun all steps from scratch")
     parser.add_argument("--step", type=str, default=None,
-                        metavar="ID", help="Run only this step (0, 3, 4a, 4b, 5, oos)")
+                        metavar="ID", help="Run only this step (0, 1, 2, 3, 4, 5, oos)")
     args = parser.parse_args()
 
     demo = args.demo
@@ -181,24 +182,29 @@ def main() -> None:
 
     set_config(config_dir)
 
-    if args.force and results_dir.exists():
-        shutil.rmtree(results_dir)
-        print(f"  Cleared results: {results_dir}/")
+    if args.force:
+        # Delete calibration state yamls from config_dir; leave static config files
+        for f in config_dir.glob("step*.yaml"):
+            f.unlink()
+        if results_dir.exists():
+            shutil.rmtree(results_dir)
+        print(f"  Cleared calibration state from {config_dir}/ and {results_dir}/")
 
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    if _all_steps_complete(STEPS, results_dir) and only_step is None:
+    if _all_steps_complete(STEPS, config_dir) and only_step is None:
         print(f"\n  System '{args.system}' is already fully calibrated.")
-        print(f"  Results: {results_dir}/")
-        print(f"  Use --force to delete results and rerun from scratch.")
+        print(f"  Config/state: {config_dir}/")
+        print(f"  Reports:      {results_dir}/")
+        print(f"  Use --force to clear state and rerun from scratch.")
         sys.exit(0)
 
     _init_run_log(results_dir)
-    _print_status_header(STEPS, only_step, results_dir)
+    _print_status_header(STEPS, only_step, config_dir)
 
     for step in STEPS:
-        if not _should_run(step, only_step, False, results_dir):
-            if step.output_file and st.exists(step.output_file, state_dir=results_dir):
+        if not _should_run(step, only_step, config_dir):
+            if _step_done(step, config_dir):
                 print(f"  {step.description} → skipped (done)")
             continue
 
@@ -208,7 +214,7 @@ def main() -> None:
 
         try:
             mod = _import_step(step.module)
-            kwargs = {"state_dir": results_dir}
+            kwargs = {"state_dir": config_dir, "report_dir": results_dir}
             if step.number == "0":
                 kwargs["demo"] = demo
             result = mod.main(**kwargs)
@@ -227,7 +233,8 @@ def main() -> None:
 
     print(f"\n  {'='*58}")
     print(f"  Pipeline complete.")
-    print(f"  Results: {results_dir}/")
+    print(f"  Config/state: {config_dir}/")
+    print(f"  Reports:      {results_dir}/")
     print(f"  {'='*58}\n")
 
 

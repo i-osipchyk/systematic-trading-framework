@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-STATE_DIR = Path(__file__).parents[2] / "systems" / "universe_v4" / "results"
+STATE_DIR = Path(__file__).parents[2] / "systems" / "universe_v4" / "config"
 
 
 def _resolve_dir(state_dir=None) -> Path:
@@ -34,6 +34,41 @@ def exists(filename: str, state_dir=None) -> bool:
 
 def path(filename: str, state_dir=None) -> Path:
     return _resolve_dir(state_dir) / filename
+
+
+def save_section(filename: str, section: str, data, state_dir=None) -> None:
+    """Merge one section into a multi-section YAML state file."""
+    p = _resolve_dir(state_dir) / filename
+    existing: dict = {}
+    if p.exists():
+        existing = yaml.safe_load(p.read_text()) or {}
+    existing[section] = data
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w") as f:
+        yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
+
+
+def load_section(filename: str, section: str, state_dir=None):
+    """Load one section from a multi-section YAML state file."""
+    p = _resolve_dir(state_dir) / filename
+    if not p.exists():
+        raise FileNotFoundError(
+            f"State file not found: {p}\n  Run the previous calibration step first."
+        )
+    data = yaml.safe_load(p.read_text()) or {}
+    if section not in data:
+        raise KeyError(
+            f"Section '{section}' not found in {p}\n  Re-run the step that produces it."
+        )
+    return data[section]
+
+
+def has_section(filename: str, section: str, state_dir=None) -> bool:
+    """Return True if the file exists and contains the given top-level key."""
+    p = _resolve_dir(state_dir) / filename
+    if not p.exists():
+        return False
+    return section in (yaml.safe_load(p.read_text()) or {})
 
 
 def parse_ewmac_scalars(raw: dict) -> dict[tuple[int, int], float]:

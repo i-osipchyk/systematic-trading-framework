@@ -4,12 +4,9 @@ OOS validation: IS vs Val (2010–2017) SR breakdown by instrument, asset class,
 Loads all calibrated parameters from the given run directory, then runs IS and
 Val periods for each instrument and rule in isolation.
 
-INPUT STATE FILES (from run_dir, or calibrate/state/ when run standalone):
-  - step3a_scalars.yaml
-  - step3d_forecast_weights.yaml
-  - step3d_fdm.yaml
-  - step4a_instrument_weights.yaml
-  - step4b_idm.yaml
+INPUT STATE FILES (from system config/ directory):
+  - step3.yaml  (sections: scalars, forecast_weights, fdm)
+  - step4.yaml  (sections: instrument_weights, idm)
 
 OUTPUT: printed tables only (no state file written).
 
@@ -84,21 +81,17 @@ def _mdd(pnl: pd.Series, capital: float = CAPITAL) -> float:
     return float(dd.min())
 
 
-def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT) -> None:
-    scalars_data  = st.load("step3a_scalars.yaml",           state_dir=state_dir)
-    weights_data  = st.load("step3d_forecast_weights.yaml",  state_dir=state_dir)
-    fdm_data      = st.load("step3d_fdm.yaml",               state_dir=state_dir)
-    inst_wts_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
-    idm_data      = st.load("step4b_idm.yaml",               state_dir=state_dir)
+def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT, report_dir=None) -> None:
+    scalars_data  = st.load_section("step3.yaml", "scalars",           state_dir=state_dir)
+    weights_data  = st.load_section("step3.yaml", "forecast_weights",  state_dir=state_dir)
+    fdm_data      = st.load_section("step3.yaml", "fdm",               state_dir=state_dir)
+    inst_wts_data = st.load_section("step4.yaml", "instrument_weights", state_dir=state_dir)
+    idm_data      = st.load_section("step4.yaml", "idm",               state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
-    rule_weights: dict[str, float] = {
-        k: float(v) for k, v in weights_data["forecast_weights"].items()
-    }
-    instrument_weights: dict[str, float] = {
-        k: float(v) for k, v in inst_wts_data["instrument_weights"].items()
-    }
-    idm = float(idm_data["idm"])
+    rule_weights: dict[str, float] = {k: float(v) for k, v in weights_data.items()}
+    instrument_weights: dict[str, float] = {k: float(v) for k, v in inst_wts_data.items()}
+    idm = float(idm_data)
 
     # Rule names come from the loaded forecast weights — no hardcoded list
     all_rules = list(rule_weights.keys())
@@ -355,4 +348,4 @@ if __name__ == "__main__":
     root = Path(__file__).parents[1]
     system_dir = root / args.system
     set_config(system_dir / "config")
-    main(state_dir=system_dir / "results", include_all=args.include_all, vol_target=args.vol_target)
+    main(state_dir=system_dir / "config", include_all=args.include_all, vol_target=args.vol_target)

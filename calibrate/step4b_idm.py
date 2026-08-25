@@ -5,14 +5,11 @@ Runs IS-only portfolio with calibrated parameters (IDM=1.0), builds the
 return correlation matrix, then derives IDM = 1/sqrt(w'Cw).
 
 INPUT STATE FILES:
-  - step3a_scalars.yaml         (from step 3a)
-  - step3d_forecast_weights.yaml (from step 3d)
-  - step3d_fdm.yaml              (from step 3d)
-  - step4a_instrument_weights.yaml (from step 4a)
+  - step3.yaml  (sections: scalars, forecast_weights, fdm)
+  - step4.yaml  (section: instrument_weights)
 
 OUTPUT STATE FILES:
-  - step4b_idm.yaml
-      idm: float
+  - step4.yaml  (section: idm — appended)
 
 Usage:
     uv run python calibrate/step4b_idm.py
@@ -42,19 +39,19 @@ from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 
-def main(state_dir=None, split_date=None) -> None:
-    scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
-    inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
+def main(state_dir=None, split_date=None, report_dir=None) -> None:
+    if report_dir is None:
+        report_dir = state_dir
+    scalars_data       = st.load_section("step3.yaml", "scalars",          state_dir=state_dir)
+    forecast_weights   = st.load_section("step3.yaml", "forecast_weights",  state_dir=state_dir)
+    fdm_data           = st.load_section("step3.yaml", "fdm",               state_dir=state_dir)
+    instrument_weights_raw = {
+        k: float(v) for k, v in
+        st.load_section("step4.yaml", "instrument_weights", state_dir=state_dir).items()
+    }
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
-    rule_weights: dict[str, float] = {
-        k: float(v) for k, v in weights_data["forecast_weights"].items()
-    }
-    instrument_weights_raw: dict[str, float] = {
-        k: float(v) for k, v in inst_weights_data["instrument_weights"].items()
-    }
+    rule_weights: dict[str, float] = {k: float(v) for k, v in forecast_weights.items()}
 
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
@@ -94,7 +91,7 @@ def main(state_dir=None, split_date=None) -> None:
             continue
         vol_is = daily_vol(is_prices)
         cfg = cfgs[code]
-        fdm = float(fdm_data.get(code, 1.0))
+        fdm = float(fdm_data.get(code, 1.0)) if isinstance(fdm_data, dict) else 1.0
         inst_weight = instrument_weights_raw.get(code, 0.0)
 
         fc_is = combined_forecast(
@@ -151,7 +148,7 @@ def main(state_dir=None, split_date=None) -> None:
         print(f"  IDM      = {idm:.3f}")
 
     # ── Markdown report — append IDM section to step4_report.md ──────────────
-    report_path = st.path("step4_report.md", state_dir=state_dir)
+    report_path = st.path("step4_report.md", state_dir=report_dir)
     idm_lines: list[str] = [
         "## IDM  (portfolio-weighted IS PnL correlations)", "",
         "| Metric | Value |",
@@ -221,10 +218,9 @@ def main(state_dir=None, split_date=None) -> None:
         f.write("\n".join(min_pos_lines))
 
     # Save state
-    st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)
-    print(f"\n  Saved:")
-    print(f"    {st.path('step4b_idm.yaml', state_dir=state_dir)}")
-    print(f"    {report_path}")
+    st.save_section("step4.yaml", "idm", round(idm, 4), state_dir=state_dir)
+    print(f"\n  Saved: {st.path('step4.yaml', state_dir=state_dir)}  (sections: group_weights, instrument_weights, idm)")
+    print(f"  Saved: {report_path}")
 
 
 if __name__ == "__main__":
@@ -238,4 +234,4 @@ if __name__ == "__main__":
     root = Path(__file__).parents[1]
     system_dir = root / args.system
     set_config(system_dir / "config")
-    main(state_dir=system_dir / "results")
+    main(state_dir=system_dir / "config", report_dir=system_dir / "results")

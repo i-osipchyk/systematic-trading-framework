@@ -74,7 +74,7 @@ def _run_fetch(codes: list[str], from_dt: date, to_dt: date, demo: bool, period:
         print(f"\n  WARNING: fetch exited with code {result.returncode} — check output above.")
 
 
-def main(state_dir=None, demo: bool = False) -> None:
+def main(state_dir=None, demo: bool = False, report_dir=None) -> None:
     cfgs = load_instrument_configs()
     # Fetch everything declared in the config (traded or not) so FX helpers
     # that are explicitly listed are always available to the backtest engine.
