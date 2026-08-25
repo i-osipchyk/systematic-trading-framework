@@ -51,9 +51,8 @@ STEPS: list[Step] = [
     Step(1, "calibrate.step3_rules",               "step3d_fdm.yaml",                True,  "Step 3 — Rule calibration: scalars, correlations, cost filter, weights + FDM [USER EDITS weights]"),
     Step(2, "calibrate.step4a_instrument_weights", "step4a_instrument_weights.yaml", True,  "Step 4 — Set instrument weights [USER INPUT]"),
     Step(3, "calibrate.step4b_idm",                "step4b_idm.yaml",                False, "Step 4 — Compute IDM"),
-    Step(4, "calibrate.step5a_vol_target",         "step5_vol_target.yaml",          True,  "Step 5 — Kelly analysis & vol target [USER INPUT]"),
-    Step(5, "calibrate.step5b_backtest",           None,                             False, "Step 5 — Full IS backtest"),
-    Step(6, "calibrate.oos_validation",            None,                             False, "OOS   — IS vs Val SR breakdown"),
+    Step(4, "calibrate.step5_calibrate",           "step5_vol_target.yaml",          True,  "Step 5 — IS backtest, Kelly analysis, vol target [USER CONFIRMS]"),
+    Step(5, "calibrate.oos_validation",            None,                             False, "OOS   — IS vs Val SR breakdown (run after locking all steps)"),
 ]
 
 
