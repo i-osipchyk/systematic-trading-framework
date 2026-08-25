@@ -40,20 +40,21 @@ STEP_LINE = "─" * 60
 
 @dataclass
 class Step:
-    number: int
+    number: str        # matches system-build-steps.md: '0', '3', '4a', '4b', '5', 'oos'
     module: str
     output_file: str | None
     requires_user: bool
     description: str
 
 
+# Steps 1 (instrument choice) and 2 (rule selection) are manual offline decisions.
 STEPS: list[Step] = [
-    Step(0, "calibrate.step0_fetch_data",          None,                             False, "Step 0 — Fetch / update market data"),
-    Step(1, "calibrate.step3_rules",               "step3d_fdm.yaml",                True,  "Step 3 — Rule calibration: scalars, correlations, cost filter, weights + FDM [USER EDITS weights]"),
-    Step(2, "calibrate.step4a_instrument_weights", "step4a_instrument_weights.yaml", True,  "Step 4 — Set instrument weights [USER INPUT]"),
-    Step(3, "calibrate.step4b_idm",                "step4b_idm.yaml",                False, "Step 4 — Compute IDM"),
-    Step(4, "calibrate.step5_calibrate",           "step5_vol_target.yaml",          True,  "Step 5 — IS backtest, Kelly analysis, vol target [USER CONFIRMS]"),
-    Step(5, "calibrate.oos_validation",            None,                             False, "OOS   — IS vs Val SR breakdown (run after locking all steps)"),
+    Step("0",   "calibrate.step0_fetch_data",          None,                             False, "Step 0   — Fetch / update market data"),
+    Step("3",   "calibrate.step3_rules",               "step3d_fdm.yaml",                True,  "Step 3   — Rule correlations, trading speed, forecast weights [USER EDITS]"),
+    Step("4a",  "calibrate.step4a_instrument_weights", "step4a_instrument_weights.yaml", True,  "Step 4a  — Instrument weights [USER INPUT]"),
+    Step("4b",  "calibrate.step4b_idm",                "step4b_idm.yaml",                False, "Step 4b  — Compute IDM"),
+    Step("5",   "calibrate.step5_calibrate",           "step5_vol_target.yaml",          True,  "Step 5   — IS backtest and volatility target [USER CONFIRMS]"),
+    Step("oos", "calibrate.oos_validation",            None,                             False, "OOS      — IS vs Val SR breakdown (run after locking all steps)"),
 ]
 
 
@@ -73,20 +74,21 @@ def _all_steps_complete(steps: list[Step], results_dir: Path) -> bool:
     )
 
 
-def _print_status_header(steps: list[Step], only_step: int | None, results_dir: Path) -> None:
+def _print_status_header(steps: list[Step], only_step: str | None, results_dir: Path) -> None:
     print(f"\n  Calibration Pipeline")
+    print(f"  Steps 1 (instrument choice) and 2 (rule selection) are manual — see system-build-steps.md")
     print(f"  Results: {results_dir}/")
     print(f"  {STEP_LINE}")
     for step in steps:
         done = step.output_file is not None and st.exists(step.output_file, state_dir=results_dir)
-        status = "DONE  " if done else "PENDING"
+        status = "DONE   " if done else "PENDING"
         user_tag = " [user input]" if step.requires_user else ""
         skip_tag = " [skip]" if only_step is not None and step.number != only_step else ""
-        print(f"  Step {step.number}: {status}  {step.description}{user_tag}{skip_tag}")
+        print(f"  {step.description:52s} {status}{user_tag}{skip_tag}")
     print(f"  {STEP_LINE}\n")
 
 
-def _should_run(step: Step, only_step: int | None, force: bool, results_dir: Path) -> bool:
+def _should_run(step: Step, only_step: str | None, force: bool, results_dir: Path) -> bool:
     if only_step is not None:
         return step.number == only_step
     if force:
@@ -99,7 +101,7 @@ def _should_run(step: Step, only_step: int | None, force: bool, results_dir: Pat
 def _log_step_values(step: Step, values: dict, results_dir: Path) -> None:
     if not values:
         return
-    print(f"\n  Logged for step {step.number} ({step.description}):")
+    print(f"\n  Logged for {step.description}:")
     for key, val in values.items():
         if isinstance(val, dict):
             print(f"    {key}:")
@@ -161,8 +163,8 @@ def main() -> None:
                         help="Use demo account for data fetching (step 0)")
     parser.add_argument("--force", action="store_true",
                         help="Delete existing results and rerun all steps from scratch")
-    parser.add_argument("--step", type=int, default=None,
-                        metavar="N", help="Run only step N")
+    parser.add_argument("--step", type=str, default=None,
+                        metavar="ID", help="Run only this step (0, 3, 4a, 4b, 5, oos)")
     args = parser.parse_args()
 
     demo = args.demo
@@ -197,31 +199,31 @@ def main() -> None:
     for step in STEPS:
         if not _should_run(step, only_step, False, results_dir):
             if step.output_file and st.exists(step.output_file, state_dir=results_dir):
-                print(f"  Step {step.number}: {step.description} → skipped (done)")
+                print(f"  {step.description} → skipped (done)")
             continue
 
         print(f"\n  {'='*58}")
-        print(f"  Step {step.number}: {step.description}")
+        print(f"  {step.description}")
         print(f"  {'='*58}\n")
 
         try:
             mod = _import_step(step.module)
             kwargs = {"state_dir": results_dir}
-            if step.number == 0:
+            if step.number == "0":
                 kwargs["demo"] = demo
             result = mod.main(**kwargs)
         except KeyboardInterrupt:
-            print(f"\n  Step {step.number} aborted by user.")
+            print(f"\n  {step.description} — aborted by user.")
             sys.exit(1)
         except Exception:
-            print(f"\n  Step {step.number} FAILED:")
+            print(f"\n  {step.description} — FAILED:")
             traceback.print_exc()
             sys.exit(1)
 
         if step.requires_user and isinstance(result, dict):
             _log_step_values(step, result, results_dir)
 
-        print(f"\n  Step {step.number} complete.")
+        print(f"\n  {step.description} — complete.")
 
     print(f"\n  {'='*58}")
     print(f"  Pipeline complete.")
