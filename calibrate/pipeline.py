@@ -9,7 +9,7 @@ Usage:
     uv run python calibrate/pipeline.py                                        # new run (universe_v3)
     uv run python calibrate/pipeline.py --config config/universe_v2           # specific build
     uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X    # resume existing run
-    uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X --from 3
+    uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X --from 2  # continue after editing weights
     uv run python calibrate/pipeline.py --resume systems/universe_v3/run_X --force
     uv run python calibrate/pipeline.py --step 5                               # new run, only step 5
 """
@@ -47,17 +47,14 @@ class Step:
 
 STEPS: list[Step] = [
     #  #  module                              output file                      user?  description
-    Step(0, "calibrate.step0_fetch_data",            None,                             False, "Step 0  — Fetch / update market data"),
-    Step(1, "calibrate.step3a_scalars",              "step3a_scalars.yaml",            False, "Step 3a — Compute rule scalars (→ step3a_scalars.yaml)"),
-    Step(2, "calibrate.step3b_rule_correlations",    None,                             False, "Step 3b — Rule correlation matrix [informational, no output file]"),
-    Step(3, "calibrate.step3c_cost_filter",          "step3c_turnover.yaml",           False, "Step 3c — Cost filter: turnover per rule (→ step3c_turnover.yaml)"),
-    Step(4, "calibrate.step3d_forecast_weights",     "step3d_forecast_weights.yaml",   True,  "Step 3d — Set forecast weights [USER INPUT] (→ step3d_forecast_weights.yaml)"),
-    Step(5, "calibrate.step3d_fdm",                  "step3d_fdm.yaml",                False, "Step 3d — Compute per-instrument FDM (→ step3d_fdm.yaml)"),
-    Step(6, "calibrate.step4a_instrument_weights",   "step4a_instrument_weights.yaml", True,  "Step 4a — Set instrument weights [USER INPUT] (→ step4a_instrument_weights.yaml)"),
-    Step(7, "calibrate.step4b_idm",                  "step4b_idm.yaml",                False, "Step 4b — Compute IDM (→ step4b_idm.yaml)"),
-    Step(8, "calibrate.step5a_vol_target",           "step5_vol_target.yaml",          True,  "Step 5a — Kelly analysis & vol target [USER INPUT] (→ step5_vol_target.yaml)"),
-    Step(9, "calibrate.step5b_backtest",             None,                             False, "Step 5b — Full IS+Val+Test backtest [informational]"),
-    Step(10, "calibrate.oos_validation",             None,                             False, "OOS  — IS vs Val SR breakdown by instrument, asset class, rule"),
+    Step(0, "calibrate.step0_fetch_data",          None,                             False, "Step 0 — Fetch / update market data"),
+    Step(1, "calibrate.step3_rules",               "step3a_scalars.yaml",            True,  "Step 3 — Rule calibration: scalars, correlations, cost filter, weights [USER EDITS] (→ step3*.yaml + step3_report.md)"),
+    Step(2, "calibrate.step3d_fdm",                "step3d_fdm.yaml",                False, "Step 4 — Compute per-instrument FDM (→ step3d_fdm.yaml)"),
+    Step(3, "calibrate.step4a_instrument_weights", "step4a_instrument_weights.yaml", True,  "Step 5 — Set instrument weights [USER INPUT] (→ step4a_instrument_weights.yaml)"),
+    Step(4, "calibrate.step4b_idm",                "step4b_idm.yaml",                False, "Step 6 — Compute IDM (→ step4b_idm.yaml)"),
+    Step(5, "calibrate.step5a_vol_target",         "step5_vol_target.yaml",          True,  "Step 7 — Kelly analysis & vol target [USER INPUT] (→ step5_vol_target.yaml)"),
+    Step(6, "calibrate.step5b_backtest",           None,                             False, "Step 8 — Full IS+Val+Test backtest [informational]"),
+    Step(7, "calibrate.oos_validation",            None,                             False, "Step 9 — IS vs Val SR breakdown by instrument, asset class, rule"),
 ]
 
 
