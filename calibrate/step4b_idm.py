@@ -139,23 +139,10 @@ def main(state_dir=None, split_date=None) -> None:
 
     SEP = "─" * 70
 
-    # ── Console: correlation matrix ────────────────────────────────────────────
+    # ── Console: IDM ───────────────────────────────────────────────────────────
     col_w = max(len(c) for c in ordered_instruments)
     print(f"\n  {SEP}")
-    print("  INSTRUMENT RETURN CORRELATIONS  (IS, portfolio-weighted PnL)")
-    print(f"  {SEP}")
-    header = f"  {'':>{col_w}}" + "".join(f"  {c:>{col_w}}" for c in ordered_instruments)
-    print(header)
-    for i, r1 in enumerate(ordered_instruments):
-        row = f"  {r1:>{col_w}}"
-        for j, _ in enumerate(ordered_instruments):
-            v = corr_vals[i, j]
-            row += f"  {v:>{col_w}.2f}"
-        print(row)
-
-    # ── Console: IDM ───────────────────────────────────────────────────────────
-    print(f"\n  {SEP}")
-    print("  IDM")
+    print("  IDM  (portfolio-weighted IS PnL correlations)")
     print(f"  {SEP}")
     print(f"  Raw IDM  = 1/sqrt({port_var:.4f}) = {raw_idm:.3f}")
     if capped:

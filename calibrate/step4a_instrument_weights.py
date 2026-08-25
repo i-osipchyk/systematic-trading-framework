@@ -13,12 +13,16 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.backtest.config import load_instrument_configs, traded_instruments
 from src.calibration import state as st
+from src.data.pst_writer import load_adjusted_prices
+from src.data.splits import compute_split_date, split_series
 
 GROUP_FILENAME = "step4a_group_weights.yaml"
 FILENAME = "step4a_instrument_weights.yaml"
@@ -158,9 +162,48 @@ def _validate_individual_weights(instruments: list[str], data: dict) -> list[str
     return errors
 
 
+def _print_corr(instruments: list[str], split_date) -> None:
+    """Print IS price-return correlation matrix before the user sets weights."""
+    returns: dict[str, pd.Series] = {}
+    for code in instruments:
+        try:
+            prices = load_adjusted_prices(code)
+        except FileNotFoundError:
+            continue
+        is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) >= 20:
+            returns[code] = is_prices.pct_change().dropna()
+
+    if not returns:
+        return
+
+    ret_df = pd.DataFrame(returns).dropna(how="all")
+    corr = ret_df.corr(min_periods=20)
+    codes = list(corr.columns)
+    vals = corr.values
+    vals = np.where(np.isnan(vals), 0.0, vals)
+    np.fill_diagonal(vals, 1.0)
+
+    col_w = max(len(c) for c in codes)
+    SEP = "─" * 70
+    print(f"\n  {SEP}")
+    print("  INSTRUMENT RETURN CORRELATIONS  (IS price returns)")
+    print(f"  {SEP}")
+    print(f"  {'':>{col_w}}" + "".join(f"  {c:>{col_w}}" for c in codes))
+    for i, r1 in enumerate(codes):
+        row = f"  {r1:>{col_w}}"
+        for j in range(len(codes)):
+            row += f"  {vals[i, j]:>{col_w}.2f}"
+        print(row)
+    print()
+
+
 def main(state_dir=None) -> None:
     group_to_instruments = _get_groups()
     all_instruments = [code for codes in group_to_instruments.values() for code in codes]
+
+    split_date = compute_split_date(all_instruments)
+    _print_corr(all_instruments, split_date)
 
     # ── Pass 1: group-level weights ────────────────────────────────────────────
     if not st.exists(GROUP_FILENAME, state_dir=state_dir):
