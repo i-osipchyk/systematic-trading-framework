@@ -127,36 +127,73 @@ def main(state_dir=None, split_date=None) -> None:
 
     idm = compute_idm(is_returns, weights=weights_arr)
 
-    # Print correlation matrix
     corr = is_returns.dropna(how="all").corr(min_periods=20)
     corr_vals = corr.values
     corr_vals = np.where(np.isnan(corr_vals), 0.0, corr_vals)
     np.fill_diagonal(corr_vals, 1.0)
 
-    print()
-    print("  IS instrument return correlation matrix")
-    header = "  " + " " * 8 + "".join(f"{c:>8}" for c in ordered_instruments)
+    w = weights_arr / weights_arr.sum()
+    port_var = float(w @ corr_vals @ w)
+    raw_idm = 1.0 / np.sqrt(port_var)
+    capped = idm < raw_idm
+
+    SEP = "─" * 70
+
+    # ── Console: correlation matrix ────────────────────────────────────────────
+    col_w = max(len(c) for c in ordered_instruments)
+    print(f"\n  {SEP}")
+    print("  INSTRUMENT RETURN CORRELATIONS  (IS, portfolio-weighted PnL)")
+    print(f"  {SEP}")
+    header = f"  {'':>{col_w}}" + "".join(f"  {c:>{col_w}}" for c in ordered_instruments)
     print(header)
-    print("  " + "─" * (8 + 8 * len(ordered_instruments)))
-    for i, code in enumerate(ordered_instruments):
-        row = f"  {code:<8}" + "".join(f"{corr_vals[i, j]:>8.3f}"
-                                        for j in range(len(ordered_instruments)))
+    for i, r1 in enumerate(ordered_instruments):
+        row = f"  {r1:>{col_w}}"
+        for j, _ in enumerate(ordered_instruments):
+            v = corr_vals[i, j]
+            row += f"  {v:>{col_w}.2f}"
         print(row)
 
-    # IDM derivation
-    w = weights_arr / weights_arr.sum()
-    port_var = w @ corr_vals @ w
-    cap_msg = "" if idm < 2.5 else "  (capped at 2.5)"
-    capped = idm >= 2.5
-    not_capped_msg = "not capped" if not capped else "capped"
-    print()
-    print(f"  IDM = 1/sqrt({port_var:.3f}) = {1.0/np.sqrt(port_var):.3f}  ({not_capped_msg}; cap = 2.5)")
+    # ── Console: IDM ───────────────────────────────────────────────────────────
+    print(f"\n  {SEP}")
+    print("  IDM")
+    print(f"  {SEP}")
+    print(f"  Raw IDM  = 1/sqrt({port_var:.4f}) = {raw_idm:.3f}")
     if capped:
-        print(f"  IDM (after cap) = {idm:.3f}")
+        print(f"  IDM      = {idm:.3f}  (capped at 2.5)")
+    else:
+        print(f"  IDM      = {idm:.3f}")
+
+    # ── Markdown report ────────────────────────────────────────────────────────
+    report_lines: list[str] = ["# Step 4 Instrument Weights Report", ""]
+
+    report_lines += ["## Instrument Return Correlations", ""]
+    header_md = "| |" + "".join(f" {c} |" for c in ordered_instruments)
+    sep_md = "|---|" + "".join("---|" for _ in ordered_instruments)
+    report_lines += [header_md, sep_md]
+    for i, r1 in enumerate(ordered_instruments):
+        row_md = f"| **{r1}** |" + "".join(
+            f" {corr_vals[i, j]:.2f} |" for j in range(len(ordered_instruments))
+        )
+        report_lines.append(row_md)
+    report_lines.append("")
+
+    report_lines += ["## IDM", ""]
+    report_lines.append(f"| Metric | Value |")
+    report_lines.append(f"|--------|-------|")
+    report_lines.append(f"| Raw IDM (1/√(w'Cw)) | {raw_idm:.3f} |")
+    report_lines.append(f"| IDM (after cap 2.5) | {idm:.3f} |")
+    report_lines.append(f"| Portfolio variance w'Cw | {port_var:.4f} |")
+    report_lines.append("")
+
+    report_path = st.path("step4_report.md", state_dir=state_dir)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("\n".join(report_lines))
 
     # Save state
     st.save("step4b_idm.yaml", {"idm": round(idm, 4)}, state_dir=state_dir)
-    print(f"\n  Saved → {st.path('step4b_idm.yaml', state_dir=state_dir)}")
+    print(f"\n  Saved:")
+    print(f"    {st.path('step4b_idm.yaml', state_dir=state_dir)}")
+    print(f"    {report_path}")
 
 
 if __name__ == "__main__":
