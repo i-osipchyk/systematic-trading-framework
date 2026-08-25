@@ -37,6 +37,7 @@ from src.backtest.sizing import compute_positions
 from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
+from src.rules.combine import calibrate_fdm, combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
@@ -602,9 +603,48 @@ def main(state_dir=None, split_date=None) -> dict:
         print("\n  Aborted.")
         sys.exit(1)
 
+    # ── 3e: FDM (automatic, runs after user confirms weights) ──────────────────
+    print("  [3e] Computing FDM from confirmed weights...")
+    confirmed_weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
+    rule_weights: dict[str, float] = {
+        k: float(v) for k, v in confirmed_weights_data["forecast_weights"].items()
+    }
+    family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
+
+    fdms: dict[str, float] = {}
+    for code in instruments:
+        try:
+            prices = load_adjusted_prices(code)
+        except FileNotFoundError:
+            continue
+        is_prices, _ = split_series(prices, split_date)
+        if len(is_prices) < 20:
+            continue
+        vol_is = daily_vol(is_prices)
+        fc_is = combined_forecast(
+            is_prices, vol_is, fdm=1.0,
+            family_scalars=family_scalars,
+            rule_weights=rule_weights,
+            instrument_code=code,
+        )
+        rule_cols = [c for c in fc_is.columns if c != "combined"]
+        fdms[code] = calibrate_fdm(fc_is[rule_cols], rule_weights=rule_weights)
+
+    st.save("step3d_fdm.yaml", {code: round(fdm, 4) for code, fdm in fdms.items()},
+            state_dir=state_dir)
+
+    fdm_path = st.path("step3d_fdm.yaml", state_dir=state_dir)
+    fw = max(len(c) for c in fdms) + 2 if fdms else 14
+    print(f"\n  {'Instrument':<{fw}} {'FDM':>6}")
+    print(f"  {'─' * (fw + 8)}")
+    for code, fdm in fdms.items():
+        print(f"  {code:<{fw}} {fdm:>6.3f}")
+    print(f"\n  Saved: {fdm_path}")
+
     return {
         "scalars_saved": str(st.path("step3a_scalars.yaml", state_dir=state_dir)),
-        "weights_template": str(weights_path),
+        "weights_confirmed": str(weights_path),
+        "fdm_saved": str(fdm_path),
         "report": str(report_path),
     }
 
