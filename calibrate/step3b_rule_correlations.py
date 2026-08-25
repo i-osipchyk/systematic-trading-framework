@@ -33,46 +33,38 @@ from src.rules.vol import daily_vol
 
 # ── Candidate rule set — set after Step 3b correlation analysis ───────────────
 #
-# Trend candidates: 6 EWMAC speeds + 4 Breakout lookbacks + 3 TSMOM lookbacks.
-# Carry and Seasonality are applied per-instrument-type (see Step 2 decision doc).
+# v3 rule families: Trend (EWMAC + Breakout + TSMOM candidates) + Seasonality.
+# No Carry in v3 — carry was removed at Step 2 (bonds-only host, no FX).
+# Seasonality applied universally to all instruments.
 #
 # FAMILY_WEIGHTS and FAMILY_STRUCTURE below are PROVISIONAL — they are used to
 # produce a suggested weight breakdown for reference after the correlation matrix
 # is printed. Adjust them once you have reviewed the actual correlations.
 #
-# Provisional structure:
-#   Trend     → 3 sub-groups: fast EWMAC, slow EWMAC, channel/momentum
-#   Carry     → single rule (FX + bonds only)
-#   Seasonality → single rule (ags + energy only)
-#
-# Note: per-instrument-type weights (e.g. equities get 100% trend, FX gets
-# 50% trend / 50% carry) are set in step3d_forecast_weights.yaml, not here.
-# The weight suggestions below assume a generic 3-family instrument. Use them
-# only as a starting point for handcrafting discussion.
+# Provisional structure: Trend sub-families grouped by timescale.
+# Rules at the same timescale are expected to be highly correlated (0.85+);
+# Step 3b will confirm. If so, the most redundant can be pruned.
 
 FAMILY_WEIGHTS: dict[str, float] = {
     "Trend":       0.50,
-    "Carry":       0.25,
-    "Seasonality": 0.25,
+    "Seasonality": 0.50,
 }
 
 FAMILY_STRUCTURE: dict[str, list[list[str]]] = {
     "Trend": [
-        # Each EWMAC speed is its own sub-family — equal weight within Trend.
-        # EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; fails cost ceiling 11/27 instruments.
-        ["EWMAC_4_16"],
-        ["EWMAC_8_32"],
-        ["EWMAC_16_64"],
-        ["EWMAC_32_128"],
-        ["EWMAC_64_256"],
+        # Grouped by timescale. Each group is one sub-family (equal budget).
+        ["EWMAC_2_8"],                                   # ~1-2 weeks
+        ["EWMAC_4_16", "BREAKOUT_20"],                   # ~1 month
+        ["EWMAC_8_32", "BREAKOUT_50", "TSMOM_63"],       # ~2-3 months
+        ["EWMAC_16_64", "BREAKOUT_100", "TSMOM_126"],    # ~3-5 months
+        ["EWMAC_32_128"],                                 # ~5 months
+        ["EWMAC_64_256", "BREAKOUT_200", "TSMOM_252"],   # ~10-12 months
     ],
-    "Carry":       [["CARRY"]],
     "Seasonality": [["SEASONALITY"]],
 }
 
 SUBFAM_WEIGHTS: dict[str, list[float]] = {
-    "Trend":       [1/5, 1/5, 1/5, 1/5, 1/5],
-    "Carry":       [1.0],
+    "Trend":       [1/6, 1/6, 1/6, 1/6, 1/6, 1/6],
     "Seasonality": [1.0],
 }
 
@@ -254,10 +246,9 @@ def main(state_dir=None) -> None:
         print(f"    {rule}: {round(w, 4)}")
 
     print(
-        "\n  Note: family-level weights (Trend/Carry/Seasonality) and within-trend\n"
-        "  sub-family weights (EWMAC/BREAKOUT, fast/slow) are set in this script's\n"
-        "  FAMILY_WEIGHTS / SUBFAM_WEIGHTS constants. Adjust those if the correlation\n"
-        "  matrix or IS SR analysis suggests a different split."
+        "\n  Note: family-level weights (Trend/Seasonality) and within-trend\n"
+        "  sub-family weights are set in this script's FAMILY_WEIGHTS / SUBFAM_WEIGHTS\n"
+        "  constants. Adjust those if the correlation matrix suggests a different split."
     )
 
 

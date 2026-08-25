@@ -80,12 +80,15 @@ def main(state_dir=None, split_date=None) -> None:
 
         scalars_out[block_name] = handler.dump_scalars(block_scalars_native)
 
-    # Seasonality: per-instrument calibration (not pooled across instruments)
+    # Seasonality: per-instrument calibration (not pooled across instruments).
+    # Uses the instruments list from the config's seasonality block if present;
+    # falls back to the module-level SEASONAL_INSTRUMENTS set otherwise.
     if "seasonality" in rules:
         from src.rules.seasonality import SEASONAL_INSTRUMENTS, fit_seasonality
+        seasonal_instrument_list = rules["seasonality"].get("instruments", list(SEASONAL_INSTRUMENTS))
         seasonal_models: dict[str, dict] = {}
         for code in instruments:
-            if code not in SEASONAL_INSTRUMENTS:
+            if code not in seasonal_instrument_list:
                 continue
             try:
                 prices = load_adjusted_prices(code)

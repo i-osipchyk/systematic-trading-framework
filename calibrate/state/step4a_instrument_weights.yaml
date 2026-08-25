@@ -7,43 +7,31 @@
 #
 # IS window: up to 2010-01-01
 #
-# Manual adjustment applied after correlation computation:
-#   BUND: 13.0% → 6.0%  (−7%: too large as a single instrument vs 4 US maturities)
-#   Each ag +1%  (7 ags × 1% = +7%: ags were operationally tiny at <1% each)
-#
-# Group totals after adjustment:
-#   FX: 24.7%  |  Equities: 24.8%  |  Bonds: 19.0%  |  Commodities: 31.5%
-#
 instrument_weights:
-  # ── FX (24.7%) ──────────────────────────────
-  EURUSD: 0.042435
-  GBPUSD: 0.042435
-  AUDUSD: 0.035287
-  USDCAD: 0.035287
-  USDJPY: 0.092054
-  # ── Equities (24.8%) ──────────────────────────────
-  US500: 0.032503
-  NAS100: 0.032503
-  GER40: 0.029508
-  UK100: 0.029508
-  JPN225: 0.062372
-  HK50: 0.061486
-  # ── Bonds (19.0%) ──────────────────────────────
-  US2YR: 0.032442
-  US5YR: 0.032442
-  US10YR: 0.032442
-  US30YR: 0.032442
-  BUND: 0.059766
-  # ── Commodities (31.5%) ──────────────────────────────
-  XAU: 0.029928
-  XAG: 0.029928
-  COPPER: 0.060387
-  SpotCrude: 0.032078
-  Gasoline: 0.032078
-  Corn: 0.020115
-  Soybeans: 0.020115
-  Wheat: 0.020115
-  Coffee: 0.017586
-  Cocoa: 0.017586
-  Sugar: 0.017586
-  Cotton: 0.017586
+  # ── Equities (25.2%) ──────────────────────────────
+  US500: 0.033001
+  NAS100: 0.033001
+  GER40: 0.029959
+  UK100: 0.029959
+  JPN225: 0.063326
+  HK50: 0.062426
+  # ── Bonds (27.9%) ──────────────────────────────
+  US2YR: 0.034860
+  US5YR: 0.034860
+  US10YR: 0.034860
+  US30YR: 0.034860
+  BUND: 0.139439
+  # ── Financial Commodities (23.3%) ──────────────────────────────
+  XAU: 0.037984
+  XAG: 0.037984
+  COPPER: 0.075992
+  SpotCrude: 0.040483
+  Gasoline: 0.040483
+  # ── Ags (23.7%) ──────────────────────────────
+  Corn: 0.039421
+  Soybeans: 0.039421
+  Wheat: 0.039421
+  Coffee: 0.029565
+  Cocoa: 0.029565
+  Sugar: 0.029565
+  Cotton: 0.029565

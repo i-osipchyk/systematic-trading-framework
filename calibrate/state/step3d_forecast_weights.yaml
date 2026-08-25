@@ -1,20 +1,23 @@
-# Forecast weights — Step 3d
+# Forecast weights — Step 3d (Build v3)
 # ─────────────────────────────────────────────────────────────────────────────
-# Rule set: 5 EWMAC speeds + Carry + Seasonality
-# EWMAC_2_8 dropped: corr 0.87 with EWMAC_4_16; cost ceiling fails 11/27 instruments.
+# Rule set: 5 EWMAC speeds + Seasonality (uniform across all 23 instruments)
 #
-# Family split: Trend 50% / Carry 25% / Seasonality 25%
-# Within trend: equal weight across 5 speeds → 10% each
+# Step 3b pruning (IS correlation analysis, pooled across 23 instruments):
+#   EWMAC_2_8    dropped: corr 0.87 with EWMAC_4_16; cost ceiling 0.0027 (unusably tight)
+#   BREAKOUT_*   dropped: corr 0.88-0.90 with matched EWMAC at every timescale
+#   TSMOM_*      dropped: corr 0.84-0.85 with matched EWMAC at matched timescales
+#   Seasonality  retained: corr 0.02-0.15 with all trend rules — genuinely orthogonal
 #
-# Per-instrument-type effective split (after FDM rescaling):
-#   Equities / Metals   → 100% Trend  (carry=0, season=0 → FDM ~2×)
-#   FX / Bonds          → ~67% Trend, ~33% Carry
-#   Ags / Energy        → ~67% Trend, ~33% Seasonality
+# Family split: Trend 50% / Seasonality 50%
+# Within trend: equal weight across 5 EWMAC speeds → 10% each
 #
-# Cost filter notes (Step 3c):
-#   EWMAC_4_16 fails for: XAU, XAG, Cocoa
-#   EWMAC_8_32 fails for: XAG, Cocoa
-#   EWMAC_16_64 and slower: all 29 instruments pass
+# All 23 instruments use the same weight vector.
+#
+# Step 3c cost filter notes (max std cost = 0.13 / turnover):
+#   EWMAC_4_16:  turnover 23.7, ceiling 0.0055 — may fail for high-cost instruments
+#                (Cocoa spread 5.0/10pt, XAG spread 0.02/5000pt). Verify at Step 4.
+#   EWMAC_8_32+: all instruments expected to pass (ceiling 0.0102-0.0172)
+#   SEASONALITY: turnover 9.9, ceiling 0.0131 — all instruments pass
 # ─────────────────────────────────────────────────────────────────────────────
 
 forecast_weights:
@@ -23,5 +26,4 @@ forecast_weights:
   EWMAC_16_64:  0.1000
   EWMAC_32_128: 0.1000
   EWMAC_64_256: 0.1000
-  CARRY:        0.2500
-  SEASONALITY:  0.2500
+  SEASONALITY:  0.5000

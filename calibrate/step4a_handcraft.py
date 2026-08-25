@@ -44,11 +44,6 @@ OUTPUT_FILE = "step4a_instrument_weights.yaml"
 # inversely — more-correlated siblings share a smaller combined budget.
 
 TREE: dict = {
-    "FX": {
-        "European FX": ["EURUSD", "GBPUSD"],
-        "Commodity FX": ["AUDUSD", "USDCAD"],
-        "USDJPY": ["USDJPY"],
-    },
     "Equities": {
         "US": ["US500", "NAS100"],
         "European": ["GER40", "UK100"],
@@ -59,14 +54,14 @@ TREE: dict = {
         "US rates": ["US2YR", "US5YR", "US10YR", "US30YR"],
         "BUND": ["BUND"],
     },
-    "Commodities": {
+    "Financial Commodities": {
         "Precious metals": ["XAU", "XAG"],
         "COPPER": ["COPPER"],
         "Energy": ["SpotCrude", "Gasoline"],
-        "Ags": {
-            "Grains": ["Corn", "Soybeans", "Wheat"],
-            "Tropical softs": ["Coffee", "Cocoa", "Sugar", "Cotton"],
-        },
+    },
+    "Ags": {
+        "Grains": ["Corn", "Soybeans", "Wheat"],
+        "Tropical softs": ["Coffee", "Cocoa", "Sugar", "Cotton"],
     },
 }
 
