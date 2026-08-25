@@ -141,7 +141,8 @@ def main(state_dir=None) -> dict:
     print(f"  {'─' * 42}")
     print(f"  Full Kelly vol target        : {full_kelly:>6.1%}")
     print(f"  Half Kelly vol target        : {half_kelly:>6.1%}")
-    print(f"  Geometric mean (suggested)   : {suggested:>6.1%}")
+    print(f"  Geometric mean               : {geo_mean:>6.1%}  (√full×half)")
+    print(f"  Suggested (capped at 40%)    : {suggested:>6.1%}")
     print(f"  {'─' * 42}")
     print(f"  Trend-following returns are positively skewed")
     print(f"  → lean toward Full Kelly rather than Half")
@@ -158,7 +159,8 @@ def main(state_dir=None) -> dict:
             f"#\n"
             f"# Full Kelly              : {full_kelly:.2%}\n"
             f"# Half Kelly              : {half_kelly:.2%}\n"
-            f"# Geometric mean          : {geo_mean:.2%}  ← suggested\n"
+            f"# Geometric mean          : {geo_mean:.2%}  (√full×half)\n"
+            f"# Suggested (cap 40%)     : {suggested:.2%}  ← pre-filled\n"
             "#\n"
             "# Range: 0.02 – 0.50\n"
             "#\n"
@@ -218,7 +220,8 @@ def main(state_dir=None) -> dict:
               f"| Realistic SR (×0.75) | {realistic_sr:.2f} |",
               f"| Full Kelly | {full_kelly:.2%} |",
               f"| Half Kelly | {half_kelly:.2%} |",
-              f"| Geometric mean | {geo_mean:.2%} |",
+              f"| Geometric mean (√full×half) | {geo_mean:.2%} |",
+              f"| Suggested (capped at 40%) | {suggested:.2%} |",
               f"| **Confirmed vol target** | **{vol_target:.2%}** |", ""]
 
     report_path = st.path("step5_report.md", state_dir=state_dir)
