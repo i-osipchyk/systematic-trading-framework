@@ -1,9 +1,20 @@
 """
 Step 5a: Kelly analysis → user confirms vol target.
 
-Runs IS-only portfolio backtest with calibrated scalars and FDMs,
-computes Sharpe, applies Kelly criterion, then asks user to confirm a
-volatility target.
+Runs IS-only portfolio backtest with calibrated scalars, FDMs, instrument
+weights, and IDM. Computes Sharpe, applies Kelly criterion, then asks user
+to confirm a volatility target.
+
+INPUT STATE FILES:
+  - step3a_scalars.yaml          (from step 3a)
+  - step3d_forecast_weights.yaml  (from step 3d)
+  - step3d_fdm.yaml               (from step 3d)
+  - step4a_instrument_weights.yaml (from step 4a)
+  - step4b_idm.yaml               (from step 4b)
+
+OUTPUT STATE FILES:
+  - step5_vol_target.yaml
+      vol_target: float
 
 Usage:
     uv run python calibrate/step5a_vol_target.py
@@ -32,7 +43,7 @@ from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
 FILENAME = "step5_vol_target.yaml"
-FIXED_VOL_FOR_MEASUREMENT = 0.20
+_VOL_FOR_SR = 0.20  # fixed vol target used only for SR measurement; SR is scale-invariant
 
 
 def _run_is_portfolio(
@@ -40,22 +51,23 @@ def _run_is_portfolio(
     family_scalars: dict,
     rule_weights: dict,
     fdm_data: dict,
+    instrument_weights: dict[str, float],
+    idm: float,
     capital: float = 10_000.0,
-) -> tuple[float, float]:
-    """Run IS-only portfolio and return (is_sharpe, vol_target_used)."""
+) -> float:
+    """Run IS-only portfolio with calibrated weights and return IS Sharpe ratio."""
     cfgs = load_instrument_configs()
     split_date = compute_split_date(instruments)
-    n = len(instruments)
-    equal_weight = 1.0 / n
 
     fx_helper_codes = required_fx_helpers(cfgs)
     fx_prices_map = {code: load_adjusted_prices(code) for code in fx_helper_codes}
-    for _fx in ("EURUSD", "EURGBP", "USDJPY"):
+    for _fx in ("EURUSD", "EURGBP", "USDJPY", "USDCAD"):
         if _fx in instruments and _fx not in fx_prices_map:
             fx_prices_map[_fx] = load_adjusted_prices(_fx)
     eurusd = fx_prices_map.get("EURUSD", pd.Series(dtype=float))
     eurgbp = fx_prices_map.get("EURGBP", pd.Series(dtype=float))
     usdjpy = fx_prices_map.get("USDJPY", pd.Series(dtype=float))
+    usdcad = fx_prices_map.get("USDCAD", pd.Series(dtype=float))
 
     all_pnl = {}
 
@@ -71,6 +83,7 @@ def _run_is_portfolio(
         vol_is = daily_vol(is_prices)
         cfg = cfgs[code]
         fdm = float(fdm_data.get(code, 1.0))
+        inst_weight = instrument_weights.get(code, cfg.weight)
 
         fc_is = combined_forecast(
             is_prices, vol_is, fdm=fdm,
@@ -79,45 +92,50 @@ def _run_is_portfolio(
             instrument_code=code,
         )
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
-                             usdjpy_prices=usdjpy)
+                             usdjpy_prices=usdjpy, usdcad_prices=usdcad)
 
         pos = compute_positions(
             prices=is_prices, vol=vol_is, forecast=fc_is["combined"],
             pointsize=cfg.pointsize, capital=capital,
-            vol_target=FIXED_VOL_FOR_MEASUREMENT,
-            idm=1.0,
+            vol_target=_VOL_FOR_SR,
+            idm=idm,
             fx_rate_to_usd=fx,
-            instrument_weight=equal_weight,
+            instrument_weight=inst_weight,
         )
 
         gpnl = gross_pnl(pos, is_prices, cfg.pointsize)
         costs = transaction_costs(pos, cfg.spread_cost, cfg.pointsize)
-        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy)
-        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy)
+        gpnl_usd = to_usd(gpnl, cfg.currency, eurusd, eurgbp, usdjpy, usdcad)
+        costs_usd = to_usd(costs, cfg.currency, eurusd, eurgbp, usdjpy, usdcad)
         all_pnl[code] = (gpnl_usd - costs_usd)
 
     portfolio_pnl = pd.DataFrame(all_pnl).sum(axis=1)
-    sr = sharpe_ratio(portfolio_pnl, capital)
-    return sr, FIXED_VOL_FOR_MEASUREMENT
+    return sharpe_ratio(portfolio_pnl, capital)
 
 
 def main(state_dir=None) -> None:
     scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
     weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
     fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
+    inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
+    idm_data = st.load("step4b_idm.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
+    instrument_weights: dict[str, float] = {
+        k: float(v) for k, v in inst_weights_data["instrument_weights"].items()
+    }
+    idm = float(idm_data["idm"])
 
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
 
-    print("  Running IS portfolio backtest (vol target fixed at"
-          f" {FIXED_VOL_FOR_MEASUREMENT:.0%} for SR measurement)...")
-    is_sharpe, _ = _run_is_portfolio(
-        instruments, family_scalars, rule_weights, fdm_data
+    print(f"  Running IS portfolio backtest (vol target fixed at {_VOL_FOR_SR:.0%} for SR measurement,")
+    print(f"  using calibrated instrument weights and IDM={idm:.3f})...")
+    is_sharpe = _run_is_portfolio(
+        instruments, family_scalars, rule_weights, fdm_data, instrument_weights, idm
     )
 
     # Kelly analysis

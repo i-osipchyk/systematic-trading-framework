@@ -4,9 +4,11 @@
 # Individual rule weights (step 2) will be derived proportionally.
 #
 # Families and their rules:
-#   ema_crossover (6 rules): EWMAC_2_8, EWMAC_4_16, EWMAC_8_32, EWMAC_16_64, EWMAC_32_128, EWMAC_64_256
-#   mean_reversion (2 rules): MR_16, MR_200
+#   ema_crossover (3 rules): EWMAC_8_32, EWMAC_32_128, EWMAC_64_256
+#   carry         (1 rule):  CARRY
+#   seasonality   (1 rule):  SEASONALITY
 #
 family_weights:
   ema_crossover: 0.500   # edit this
-  mean_reversion: 0.500   # edit this
+  carry: 0.250           # edit this
+  seasonality: 0.250     # edit this

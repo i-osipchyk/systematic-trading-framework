@@ -32,6 +32,8 @@ def daily_vol(prices: pd.Series, span: int = VOL_SPAN) -> pd.Series:
     )
     floored = raw_vol.where(raw_vol >= floor, floor)
 
-    # Absolute minimum (handles early bars with almost no data)
-    floored = floored.clip(lower=1e-8)
+    # Absolute minimum: prevents position blow-up during flat-price data periods
+    # (e.g. monthly FRED data forward-filled to daily). 0.001 = 0.1% daily ≈ 1.6%
+    # annualized — well below any real asset vol. Only fires in pathological cases.
+    floored = floored.clip(lower=0.001)
     return floored

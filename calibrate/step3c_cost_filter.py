@@ -1,9 +1,15 @@
 """
 Step 3c: Cost filtering — empirical IS turnover and standardised cost ceiling.
 
-Measures roundtrips/year per rule (pooled across instruments) and per
-instrument (combined forecast). Prints the 0.13/turnover cost ceiling so
-rule-instrument combinations that exceed it can be flagged for exclusion.
+Measures roundtrips/year per rule variant, pooled across instruments.
+Prints the 0.13/turnover cost ceiling for each rule.
+
+INPUT STATE FILES:
+  - step3a_scalars.yaml  (from step 3a)
+
+OUTPUT STATE FILES:
+  - step3c_turnover.yaml
+      rules: {RULE_NAME: roundtrips_per_year}
 
 Usage:
     uv run python calibrate/step3c_cost_filter.py
@@ -24,7 +30,6 @@ from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.sizing import compute_positions
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
-from src.rules.combine import combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
@@ -44,13 +49,8 @@ def _roundtrips_per_year(positions: pd.Series) -> float:
 
 def main(state_dir=None, split_date=None) -> None:
     scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
-    weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
-    fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
-    rule_weights: dict[str, float] = {
-        k: float(v) for k, v in weights_data["forecast_weights"].items()
-    }
 
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
@@ -67,7 +67,6 @@ def main(state_dir=None, split_date=None) -> None:
     usdjpy = fx_prices.get("USDJPY", pd.Series(dtype=float))
     usdcad = fx_prices.get("USDCAD", pd.Series(dtype=float))
 
-    # Collect all rule names from family_scalars
     all_rule_names: list[str] = []
     for family_name, scalars in family_scalars.items():
         handler = REGISTRY[family_name]
@@ -75,10 +74,9 @@ def main(state_dir=None, split_date=None) -> None:
             all_rule_names.append(handler.rule_name(variant))
 
     rule_turnovers: dict[str, list[float]] = {r: [] for r in all_rule_names}
-    instrument_turnovers: dict[str, float] = {}
 
     print(f"  Split date (IS end): {split_date.date()}\n")
-    print("  Computing IS turnover per rule and instrument...")
+    print("  Computing IS turnover per rule (pooled across instruments)...")
 
     for code in instruments:
         if code not in cfgs:
@@ -95,17 +93,13 @@ def main(state_dir=None, split_date=None) -> None:
             continue
         vol_is = daily_vol(is_prices)
         cfg = cfgs[code]
-        fdm = float(fdm_data.get(code, 1.0))
 
         fx = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, is_prices.index,
                              usdjpy_prices=usdjpy, usdcad_prices=usdcad)
 
-        # Per-rule turnover via REGISTRY
         for family_name, scalars in family_scalars.items():
             handler = REGISTRY[family_name]
 
-            # Seasonality scalars are {instrument_code: {month: float}} — compute_all
-            # handles the lookup; compute_one_raw always returns zeros for this family.
             if family_name == "seasonality":
                 fc_df = handler.compute_all(is_prices, vol_is, scalars,
                                             instrument_code=code)
@@ -133,41 +127,15 @@ def main(state_dir=None, split_date=None) -> None:
                 )
                 rule_turnovers[rule_name].append(_roundtrips_per_year(pos))
 
-        # Combined forecast turnover
-        fc_is = combined_forecast(
-            is_prices, vol_is, fdm=fdm,
-            family_scalars=family_scalars,
-            rule_weights=rule_weights,
-            instrument_code=code,
-        )
-        combined_pos = compute_positions(
-            prices=is_prices, vol=vol_is, forecast=fc_is["combined"],
-            pointsize=cfg.pointsize, capital=10_000.0,
-            vol_target=0.15, idm=1.0, fx_rate_to_usd=fx,
-            instrument_weight=cfg.weight,
-        )
-        instrument_turnovers[code] = _roundtrips_per_year(combined_pos)
-
     pooled_rule_turnovers = {
         rule: float(np.mean(vals)) if vals else 0.0
         for rule, vals in rule_turnovers.items()
     }
 
-    inst_weights = [cfgs[code].weight for code in instrument_turnovers]
-    inst_tvs = [instrument_turnovers[code] for code in instrument_turnovers]
-    total_w = sum(inst_weights)
-    weighted_avg = (
-        float(sum(w * tv for w, tv in zip(inst_weights, inst_tvs)) / total_w)
-        if total_w > 0 else 0.0
-    )
-
     st.save("step3c_turnover.yaml", {
         "rules": {k: round(v, 2) for k, v in pooled_rule_turnovers.items()},
-        "instruments": {k: round(v, 2) for k, v in instrument_turnovers.items()},
-        "weighted_avg": round(weighted_avg, 2),
     }, state_dir=state_dir)
 
-    # Print per-rule table with cost ceiling
     print()
     print(f"  {'Rule':<18} {'Turnover':>10}  {'Max std cost':>13}  (0.13/turnover)")
     print(f"  {'─' * 48}")
@@ -175,15 +143,6 @@ def main(state_dir=None, split_date=None) -> None:
         ceiling = COST_BUDGET / tv if tv > 0 else float("inf")
         print(f"  {rule:<18} {tv:>10.1f}  {ceiling:>13.4f}")
 
-    # Per-instrument combined turnover
-    print()
-    print(f"  {'Instrument':<14} {'Turnover':>10}")
-    print(f"  {'─' * 26}")
-    for code, tv in instrument_turnovers.items():
-        print(f"  {code:<14} {tv:>10.1f}")
-
-    print()
-    print(f"  Portfolio weighted avg turnover: {weighted_avg:.1f} RT/yr")
     print(f"\n  Saved → {st.path('step3c_turnover.yaml', state_dir=state_dir)}")
 
 

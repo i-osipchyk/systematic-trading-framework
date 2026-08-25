@@ -4,6 +4,16 @@ Step 4b: Compute IDM from IS instrument return correlations.
 Runs IS-only portfolio with calibrated parameters (IDM=1.0), builds the
 return correlation matrix, then derives IDM = 1/sqrt(w'Cw).
 
+INPUT STATE FILES:
+  - step3a_scalars.yaml         (from step 3a)
+  - step3d_forecast_weights.yaml (from step 3d)
+  - step3d_fdm.yaml              (from step 3d)
+  - step4a_instrument_weights.yaml (from step 4a)
+
+OUTPUT STATE FILES:
+  - step4b_idm.yaml
+      idm: float
+
 Usage:
     uv run python calibrate/step4b_idm.py
 """
@@ -21,6 +31,8 @@ from src.calibration import state as st
 from src.backtest.config import load_instrument_configs, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.idm import compute_idm
+
+_VOL_PLACEHOLDER = 0.20  # fixed vol target used only for position sizing; IDM is scale-invariant
 from src.backtest.pnl import gross_pnl, to_usd, transaction_costs
 from src.backtest.sizing import compute_positions
 from src.data.pst_writer import load_adjusted_prices
@@ -31,18 +43,15 @@ from src.rules.vol import daily_vol
 
 
 def main(state_dir=None, split_date=None) -> None:
-    # Load all state
     scalars_data = st.load("step3a_scalars.yaml", state_dir=state_dir)
     weights_data = st.load("step3d_forecast_weights.yaml", state_dir=state_dir)
     fdm_data = st.load("step3d_fdm.yaml", state_dir=state_dir)
-    vol_target_data = st.load("step5_vol_target.yaml", state_dir=state_dir)
     inst_weights_data = st.load("step4a_instrument_weights.yaml", state_dir=state_dir)
 
     family_scalars = st.parse_family_scalars(scalars_data, REGISTRY)
     rule_weights: dict[str, float] = {
         k: float(v) for k, v in weights_data["forecast_weights"].items()
     }
-    vol_target = float(vol_target_data["vol_target"])
     instrument_weights_raw: dict[str, float] = {
         k: float(v) for k, v in inst_weights_data["instrument_weights"].items()
     }
@@ -65,7 +74,7 @@ def main(state_dir=None, split_date=None) -> None:
     usdcad = fx_prices_map.get("USDCAD", pd.Series(dtype=float))
 
     print(f"  Split date: {split_date.date()}")
-    print(f"  Vol target: {vol_target:.0%}\n")
+    print(f"  Vol target: {_VOL_PLACEHOLDER:.0%} (placeholder — IDM is scale-invariant)\n")
     print("  Running IS portfolio (IDM=1.0)...")
 
     is_pnl_per_instrument: dict[str, pd.Series] = {}
@@ -100,7 +109,7 @@ def main(state_dir=None, split_date=None) -> None:
         pos = compute_positions(
             prices=is_prices, vol=vol_is, forecast=fc_is["combined"],
             pointsize=cfg.pointsize, capital=capital,
-            vol_target=vol_target, idm=1.0, fx_rate_to_usd=fx,
+            vol_target=_VOL_PLACEHOLDER, idm=1.0, fx_rate_to_usd=fx,
             instrument_weight=inst_weight,
         )
         gpnl = gross_pnl(pos, is_prices, cfg.pointsize)

@@ -1,0 +1,368 @@
+# TARGET UNIVERSE — 21 instruments, 40-year backtest
+# ─────────────────────────────────────────────────────────────────────────────
+# Updated after OOS validation (2010–2017):
+#   Added back:  EURUSD, GBPUSD, AUDUSD, USDCAD (FX group Val SR 0.04, structural keep)
+#   Removed:     US5YR  (ZIRP rate pinning, Val SR -0.48)
+#                US2YR  (already excluded; ZIRP)
+#                NatGas (already excluded; shale regime)
+#                Cocoa  (already excluded; no edge)
+#
+# Instrument selection decisions: docs/decisions/step1_instrument_selection.md
+# Rule selection decisions:       docs/decisions/step2_rule_selection.md
+
+timeframe: D1
+bars_per_year: 256
+end_date: "2010-01-01"
+split_date: "2010-01-01"   # standalone calibration scripts treat all data as IS
+
+instruments:
+
+  # ── FX ────────────────────────────────────────────────────────────────────
+
+  EURUSD:
+    description: Euro / US Dollar
+    asset_type: currency
+    currency: USD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00007
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: EURUSD
+    yf_ticker: "EURUSD=X"
+    fred_fx: EURUSD        # DEXUSEU from 1999; DEM proxy (DEXGEUS/1.95583) pre-1999
+
+  GBPUSD:
+    description: British Pound / US Dollar
+    asset_type: currency
+    currency: USD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: GBPUSD
+    yf_ticker: "GBPUSD=X"
+    fred_fx: GBPUSD        # FRED DEXUSUK, USD per GBP, daily from 1971
+
+  AUDUSD:
+    description: Australian Dollar / US Dollar
+    asset_type: currency
+    currency: USD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00009
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: AUDUSD
+    yf_ticker: "AUDUSD=X"
+    fred_fx: AUDUSD        # FRED DEXUSAL, daily from 1971
+
+  USDJPY:
+    description: US Dollar / Japanese Yen
+    asset_type: currency
+    currency: JPY
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.020
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: USDJPY
+    yf_ticker: "USDJPY=X"
+    fred_fx: USDJPY        # FRED DEXJPUS, daily from 1971
+
+  USDCAD:
+    description: US Dollar / Canadian Dollar
+    asset_type: currency
+    currency: CAD
+    weight: 0.04
+    pointsize: 100000.0
+    spread_cost: 0.00012
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: USDCAD
+    yf_ticker: "USDCAD=X"
+    fred_fx: USDCAD        # FRED DEXCAUS, daily from 1971
+
+  # ── Equity Indices ─────────────────────────────────────────────────────────
+
+  US500:
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: US500
+    yf_ticker: "^GSPC"
+
+  NAS100:
+    description: Nasdaq 100 Index
+    asset_type: index
+    currency: USD
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 1.5
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: NAS100
+    yf_ticker: "^NDX"
+
+  GER40:
+    description: DAX 40 Index
+    asset_type: index
+    currency: EUR
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 1.5
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: GER40
+    yf_ticker: "^GDAXI"
+
+  JPN225:
+    description: Nikkei 225 Index
+    asset_type: index
+    currency: JPY
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 10.0
+    lot_step: 1.0
+    traded: true
+    ctrader_symbol: JPN225
+    yf_ticker: "^N225"
+
+  HK50:
+    description: Hang Seng Index
+    asset_type: index
+    currency: HKD
+    weight: 0.04
+    pointsize: 1.0
+    spread_cost: 15.0
+    lot_step: 1.0
+    traded: true
+    ctrader_symbol: HK50
+    yf_ticker: "^HSI"
+
+  # ── Government Bonds ───────────────────────────────────────────────────────
+
+  US2YR:
+    description: US 2-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.01
+    lot_step: 0.01
+    traded: false          # removed: ZIRP rate pinning (val SR -1.43)
+    quandl_dataset: CHRIS/CME_TU1
+    yf_ticker: "ZT=F"
+    fred_bond: US2YR       # FRED DGS2 yield → price proxy, from 1976
+
+  US5YR:
+    description: US 5-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.015
+    lot_step: 0.01
+    traded: false          # removed: ZIRP rate pinning
+    quandl_dataset: CHRIS/CME_FV1
+    yf_ticker: "ZF=F"
+    fred_bond: US5YR       # FRED DGS5 yield → price proxy, from 1962
+
+  US10YR:
+    description: US 10-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_TY1
+    yf_ticker: "ZN=F"
+    fred_bond: US10YR      # FRED DGS10 yield → price proxy, from 1962
+
+  US30YR:
+    description: US 30-Year T-Bond Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.03
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_US1
+    yf_ticker: "ZB=F"
+    fred_bond: US30YR      # FRED DGS30 yield → price proxy, from 1977
+
+  BUND:
+    description: German Bund Futures (continuous)
+    asset_type: bond
+    currency: EUR
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/EUREX_FGBL1
+    fred_bond: BUND        # FRED German long-term yield → price proxy, from 1960
+    # yfinance does not carry EUREX contracts
+
+  # ── Metals ────────────────────────────────────────────────────────────────
+
+  XAU:
+    description: Gold / US Dollar
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 100.0
+    spread_cost: 0.35
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: XAUUSD
+    quandl_dataset: CHRIS/CME_GC1
+    yf_ticker: "GC=F"
+    datahub_gold: true     # datahub.io monthly LBMA fix from 1833 → splice with GC=F at 2000
+
+  XAG:
+    description: Silver / US Dollar
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 5000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: XAGUSD
+    quandl_dataset: CHRIS/CME_SI1
+    yf_ticker: "SI=F"
+    eco3min_silver: true   # eco3min.fr silver-price.csv, World Bank monthly from 1960
+
+  COPPER:
+    description: Copper / USD
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 25000.0
+    spread_cost: 0.0005
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: Copper
+    quandl_dataset: CHRIS/CME_HG1
+    yf_ticker: "HG=F"
+    fred_price: COPPER     # FRED PCOPPUSDM monthly LME copper, from 1992
+
+  # ── Energy ────────────────────────────────────────────────────────────────
+
+  SpotCrude:
+    description: WTI Crude Oil
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 1000.0
+    spread_cost: 0.04
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: SpotCrude
+    quandl_dataset: CHRIS/CME_CL1
+    yf_ticker: "CL=F"
+    fred_price: SpotCrude  # FRED DCOILWTICO spot price, from 1986
+
+  NatGas:
+    description: Natural Gas
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 10000.0
+    spread_cost: 0.005
+    lot_step: 0.01
+    traded: false          # removed: shale revolution broke trend structure (val SR -0.58)
+    ctrader_symbol: NatGas
+    quandl_dataset: CHRIS/CME_NG1
+    yf_ticker: "NG=F"
+
+  # ── Agricultural / Softs ──────────────────────────────────────────────────
+
+  Coffee:
+    description: ICE Coffee C Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 37500.0
+    spread_cost: 0.05
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_KC1
+    yf_ticker: "KC=F"
+    fred_price: Coffee     # FRED PCOFFOTMUSDM monthly cents/lb, from 1992
+
+  Cocoa:
+    description: ICE Cocoa Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 10.0
+    spread_cost: 5.0
+    lot_step: 0.01
+    traded: false          # removed: no persistent trend edge (IS SR -0.27, val SR -0.69)
+    quandl_dataset: CHRIS/ICE_CC1
+    yf_ticker: "CC=F"
+    fred_price: Cocoa      # FRED PCOCOUSDM monthly USD/metric ton, from 1992
+
+  Sugar:
+    description: ICE Sugar No.11 Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 112000.0
+    spread_cost: 0.0002
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_SB1
+    yf_ticker: "SB=F"
+    fred_price: Sugar      # FRED PSUGAISAUSDM monthly cents/lb, from 1992
+
+  Corn:
+    description: CBOT Corn Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 5000.0
+    spread_cost: 0.005
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_C1
+    yf_ticker: "ZC=F"
+    fred_price: Corn       # FRED PMAIZMTUSDM monthly, from 1992
+
+  Cotton:
+    description: ICE Cotton No.2 Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.04
+    pointsize: 50000.0
+    spread_cost: 0.003
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_CT1
+    yf_ticker: "CT=F"
+    fred_price: Cotton     # FRED PCOTTINDUSDM monthly cents/lb, from 1992
+
+rules:
+  ewmac:
+    family: ema_crossover
+    pairs:
+      - [8, 32]
+      - [32, 128]
+      - [64, 256]
+
+  carry:
+    family: carry
+
+  seasonality:
+    family: seasonality
