@@ -15,7 +15,7 @@ Outputs written to run_dir:
 
 Usage:
     uv run python calibrate/step3_rules.py
-    uv run python calibrate/step3_rules.py --config config/universe_v3 --state-dir systems/run_X
+    uv run python calibrate/step3_rules.py --system systems/universe_v4
 """
 from __future__ import annotations
 
@@ -651,13 +651,11 @@ def main(state_dir=None, split_date=None) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Step 3: Rule calibration")
-    parser.add_argument("--config", type=str, default="config/universe_v3",
-                        metavar="PATH", help="Config folder (default: config/universe_v3)")
-    parser.add_argument("--state-dir", type=str, default=None,
-                        metavar="PATH", help="Run directory (default: systems/latest)")
+    parser.add_argument("--system", type=str, default="systems/universe_v4",
+                        metavar="PATH", help="System directory (default: systems/universe_v4)")
     args = parser.parse_args()
 
     root = Path(__file__).parents[1]
-    set_config(root / args.config)
-    state_dir = Path(args.state_dir) if args.state_dir else None
-    main(state_dir=state_dir)
+    system_dir = root / args.system
+    set_config(system_dir / "config")
+    main(state_dir=system_dir / "results")

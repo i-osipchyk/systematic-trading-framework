@@ -228,4 +228,14 @@ def main(state_dir=None, split_date=None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Step 4b: IDM computation")
+    parser.add_argument("--system", type=str, default="systems/universe_v4",
+                        metavar="PATH", help="System directory (default: systems/universe_v4)")
+    args = parser.parse_args()
+
+    from src.backtest.config import set_config
+    root = Path(__file__).parents[1]
+    system_dir = root / args.system
+    set_config(system_dir / "config")
+    main(state_dir=system_dir / "results")

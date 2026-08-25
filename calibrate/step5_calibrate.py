@@ -18,7 +18,7 @@ OUTPUT STATE FILES:
 
 Usage:
     uv run python calibrate/step5_calibrate.py
-    uv run python calibrate/step5_calibrate.py --config config/universe_v4 --state-dir systems/run_X
+    uv run python calibrate/step5_calibrate.py --system systems/universe_v4
 """
 from __future__ import annotations
 
@@ -242,12 +242,10 @@ def main(state_dir=None) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Step 5: IS backtest & vol target")
-    parser.add_argument("--config", type=str, default="config/universe_v3",
-                        metavar="PATH", help="Config folder")
-    parser.add_argument("--state-dir", type=str, default=None,
-                        metavar="PATH", help="Run directory")
+    parser.add_argument("--system", type=str, default="systems/universe_v4",
+                        metavar="PATH", help="System directory (default: systems/universe_v4)")
     args = parser.parse_args()
     root = Path(__file__).parents[1]
-    set_config(root / args.config)
-    state_dir = Path(args.state_dir) if args.state_dir else None
-    main(state_dir=state_dir)
+    system_dir = root / args.system
+    set_config(system_dir / "config")
+    main(state_dir=system_dir / "results")

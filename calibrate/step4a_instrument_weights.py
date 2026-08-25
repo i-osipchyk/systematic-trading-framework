@@ -10,6 +10,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -19,7 +20,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from src.backtest.config import load_instrument_configs, traded_instruments
+from src.backtest.config import load_instrument_configs, set_config, traded_instruments
 from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
@@ -335,4 +336,12 @@ def main(state_dir=None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Step 4a: Instrument weights")
+    parser.add_argument("--system", type=str, default="systems/universe_v4",
+                        metavar="PATH", help="System directory (default: systems/universe_v4)")
+    args = parser.parse_args()
+
+    root = Path(__file__).parents[1]
+    system_dir = root / args.system
+    set_config(system_dir / "config")
+    main(state_dir=system_dir / "results")

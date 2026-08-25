@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-STATE_DIR = Path(__file__).parents[2] / "systems" / "latest"
+STATE_DIR = Path(__file__).parents[2] / "systems" / "universe_v4" / "results"
 
 
 def _resolve_dir(state_dir=None) -> Path:

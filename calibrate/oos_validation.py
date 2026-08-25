@@ -14,13 +14,12 @@ INPUT STATE FILES (from run_dir, or calibrate/state/ when run standalone):
 OUTPUT: printed tables only (no state file written).
 
 Flags:
-  --state-dir PATH    run directory to load state from (default: calibrate/state/)
+  --system PATH       system directory (default: systems/universe_v4)
   --include-all       include all instruments regardless of 'traded: false' in config
 
 Usage:
-    TRADING_CONFIG=config/universe_40yr_wf.yaml uv run python calibrate/oos_validation.py
-    TRADING_CONFIG=config/universe_40yr_wf.yaml uv run python calibrate/oos_validation.py --include-all
-    TRADING_CONFIG=config/universe_40yr_wf.yaml uv run python calibrate/oos_validation.py --state-dir systems/universe_40yr_wf/run_20260824_120000
+    uv run python calibrate/oos_validation.py --system systems/universe_v4
+    uv run python calibrate/oos_validation.py --system systems/universe_v4 --include-all
 """
 from __future__ import annotations
 
@@ -33,7 +32,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from src.backtest.config import load_instrument_configs, traded_instruments, required_fx_helpers
+from src.backtest.config import load_instrument_configs, set_config, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.metrics import performance_report, TRADING_DAYS_PER_YEAR
 from src.backtest.pnl import gross_pnl, transaction_costs, to_usd
@@ -345,13 +344,15 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OOS validation")
-    parser.add_argument("--state-dir", type=str, default=None,
-                        help="Run directory to load state from (default: systems/latest)")
+    parser.add_argument("--system", type=str, default="systems/universe_v4",
+                        metavar="PATH", help="System directory (default: systems/universe_v4)")
     parser.add_argument("--include-all", action="store_true",
                         help="Include all instruments regardless of 'traded: false'")
     parser.add_argument("--vol-target", type=float, default=VOL_TGT,
                         metavar="FLOAT", help=f"Volatility target (default: {VOL_TGT})")
     args = parser.parse_args()
 
-    state_dir = Path(args.state_dir) if args.state_dir else None
-    main(state_dir=state_dir, include_all=args.include_all, vol_target=args.vol_target)
+    root = Path(__file__).parents[1]
+    system_dir = root / args.system
+    set_config(system_dir / "config")
+    main(state_dir=system_dir / "results", include_all=args.include_all, vol_target=args.vol_target)

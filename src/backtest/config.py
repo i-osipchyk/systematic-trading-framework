@@ -6,9 +6,9 @@ from pathlib import Path
 
 import yaml
 
-_CONFIG_ROOT = Path(__file__).parents[2] / "config"
+_SYSTEMS_ROOT = Path(__file__).parents[2] / "systems"
 # Env var TRADING_CONFIG lets subprocesses inherit the active config path (file or directory)
-CONFIG_PATH: Path = Path(os.getenv("TRADING_CONFIG", str(_CONFIG_ROOT / "universe_v3")))
+CONFIG_PATH: Path = Path(os.getenv("TRADING_CONFIG", str(_SYSTEMS_ROOT / "universe_v4" / "config")))
 
 
 def set_config(path: str | Path) -> None:

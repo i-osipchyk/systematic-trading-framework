@@ -1,0 +1,318 @@
+# BUILD v3 — 23 instruments: equities, bonds, commodities (no FX)
+# ─────────────────────────────────────────────────────────────────────────────
+# Instrument selection: docs/decisions/build_v3_step1_instrument_selection.md
+# IS window: ~1984–2010 (instrument-dependent start; all IS data pre-2010-01-01)
+# Weights are equal placeholders (1/23). Step 4 calibration overwrites them.
+# traded: true  → Pepperstone/cTrader live universe
+# traded: false → backtest universe only (no live position; diversification only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+instruments:
+
+  # ── Equity Indices ──────────────────────────────────────────────────────────
+
+  US500:
+    description: S&P 500 Index
+    asset_type: index
+    currency: USD
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 0.4
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: US500
+    yf_ticker: "^GSPC"
+
+  NAS100:
+    description: Nasdaq 100 Index
+    asset_type: index
+    currency: USD
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 1.5
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: NAS100
+    yf_ticker: "^NDX"
+
+  GER40:
+    description: DAX 40 Index
+    asset_type: index
+    currency: EUR
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 1.5
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: GER40
+    yf_ticker: "^GDAXI"
+
+  JPN225:
+    description: Nikkei 225 Index
+    asset_type: index
+    currency: JPY
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 10.0
+    lot_step: 1.0
+    traded: true
+    ctrader_symbol: JPN225
+    yf_ticker: "^N225"
+
+  HK50:
+    description: Hang Seng Index
+    asset_type: index
+    currency: HKD
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 15.0
+    lot_step: 1.0
+    traded: true
+    ctrader_symbol: HK50
+    yf_ticker: "^HSI"
+
+  UK100:
+    description: FTSE 100 Index
+    asset_type: index
+    currency: GBP
+    weight: 0.0435
+    pointsize: 1.0
+    spread_cost: 1.0
+    lot_step: 0.1
+    traded: true
+    ctrader_symbol: UK100
+    yf_ticker: "^FTSE"
+
+  # ── Government Bonds ────────────────────────────────────────────────────────
+
+  US2YR:
+    description: US 2-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.01
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_TU1
+    yf_ticker: "ZT=F"
+    fred_bond: US2YR       # FRED DGS2 yield → price proxy, from 1976
+
+  US5YR:
+    description: US 5-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.015
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_FV1
+    yf_ticker: "ZF=F"
+    fred_bond: US5YR       # FRED DGS5 yield → price proxy, from 1962
+
+  US10YR:
+    description: US 10-Year T-Note Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_TY1
+    yf_ticker: "ZN=F"
+    fred_bond: US10YR      # FRED DGS10 yield → price proxy, from 1962
+
+  US30YR:
+    description: US 30-Year T-Bond Futures (continuous)
+    asset_type: bond
+    currency: USD
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.03
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_US1
+    yf_ticker: "ZB=F"
+    fred_bond: US30YR      # FRED DGS30 yield → price proxy, from 1977
+
+  BUND:
+    description: German Bund Futures (continuous)
+    asset_type: bond
+    currency: EUR
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: EUROBUNDF
+    quandl_dataset: CHRIS/EUREX_FGBL1
+    fred_bond: BUND        # FRED German long-term yield → price proxy, from 1960
+
+  # ── Metals ──────────────────────────────────────────────────────────────────
+
+  XAU:
+    description: Gold / US Dollar
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 100.0
+    spread_cost: 0.35
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: XAUUSD
+    quandl_dataset: CHRIS/CME_GC1
+    yf_ticker: "GC=F"
+    datahub_gold: true     # datahub.io monthly LBMA fix from 1833 → splice with GC=F
+
+  XAG:
+    description: Silver / US Dollar
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 5000.0
+    spread_cost: 0.02
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: XAGUSD
+    quandl_dataset: CHRIS/CME_SI1
+    yf_ticker: "SI=F"
+    eco3min_silver: true   # eco3min.fr silver-price.csv, World Bank monthly from 1960
+
+  COPPER:
+    description: Copper Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 25000.0
+    spread_cost: 0.0005
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: Copper
+    quandl_dataset: CHRIS/CME_HG1
+    yf_ticker: "HG=F"
+    fred_price: COPPER     # FRED PCOPPUSDM monthly LME copper, from 1992
+
+  # ── Energy ──────────────────────────────────────────────────────────────────
+  # NatGas excluded: shale revolution permanently broke trend structure (structural).
+
+  SpotCrude:
+    description: WTI Crude Oil
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 1000.0
+    spread_cost: 0.04
+    lot_step: 0.01
+    traded: true
+    ctrader_symbol: SpotCrude
+    quandl_dataset: CHRIS/CME_CL1
+    yf_ticker: "CL=F"
+    fred_price: SpotCrude  # FRED DCOILWTICO spot price, from 1986
+
+  Gasoline:
+    description: RBOB Gasoline Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 42000.0
+    spread_cost: 0.001
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_RB1
+    yf_ticker: "RB=F"
+    # IS history starts 2000-11 (10yr); shorter than most
+
+  # ── Agricultural / Softs ────────────────────────────────────────────────────
+
+  Coffee:
+    description: ICE Coffee C Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 37500.0
+    spread_cost: 0.05
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_KC1
+    yf_ticker: "KC=F"
+    fred_price: Coffee     # FRED PCOFFOTMUSDM monthly cents/lb, from 1992
+
+  Cocoa:
+    description: ICE Cocoa Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 10.0
+    spread_cost: 5.0
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_CC1
+    yf_ticker: "CC=F"
+    fred_price: Cocoa      # FRED PCOCOUSDM monthly USD/metric ton, from 1992
+
+  Sugar:
+    description: ICE Sugar No.11 Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 112000.0
+    spread_cost: 0.0002
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_SB1
+    yf_ticker: "SB=F"
+    fred_price: Sugar      # FRED PSUGAISAUSDM monthly cents/lb, from 1992
+
+  Corn:
+    description: CBOT Corn Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 5000.0
+    spread_cost: 0.005
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_C1
+    yf_ticker: "ZC=F"
+    fred_price: Corn       # FRED PMAIZMTUSDM monthly, from 1992
+
+  Cotton:
+    description: ICE Cotton No.2 Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 50000.0
+    spread_cost: 0.003
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/ICE_CT1
+    yf_ticker: "CT=F"
+    fred_price: Cotton     # FRED PCOTTINDUSDM monthly cents/lb, from 1992
+
+  Soybeans:
+    description: CBOT Soybean Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 5000.0
+    spread_cost: 0.005
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_S1
+    yf_ticker: "ZS=F"
+    fred_price: Soybeans   # FRED PSOYBUSDM monthly, from 1992
+
+  Wheat:
+    description: CBOT Wheat Futures (continuous)
+    asset_type: commodity
+    currency: USD
+    weight: 0.0435
+    pointsize: 5000.0
+    spread_cost: 0.005
+    lot_step: 0.01
+    traded: true
+    quandl_dataset: CHRIS/CME_W1
+    yf_ticker: "ZW=F"
+    fred_price: Wheat      # FRED PWHEAMTUSDM monthly, from 1992

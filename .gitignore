@@ -221,6 +221,5 @@ __marimo__/
 data/futures/adjusted_prices_csv/*.csv
 data/futures/multiple_prices_csv/*.csv
 
-# Calibration run outputs (keep directory marker, ignore all run subdirs)
-systems/*/
-systems/latest
+# Calibration run outputs — results are ignored, config/ is tracked
+systems/*/results/
