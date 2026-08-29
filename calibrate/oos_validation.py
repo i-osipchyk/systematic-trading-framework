@@ -8,7 +8,8 @@ INPUT STATE FILES (from system config/ directory):
   - step3.yaml  (sections: scalars, forecast_weights, fdm)
   - step4.yaml  (sections: instrument_weights, idm)
 
-OUTPUT: printed tables only (no state file written).
+OUTPUT: printed tables + results/step6.md (portfolio, asset class, rule, family,
+  and per-instrument IS/Val/Test SR; val_weak flags for instruments with Val SR < -0.30).
 
 Flags:
   --system PATH       system directory (default: systems/universe_v4)
@@ -24,16 +25,36 @@ import argparse
 import sys
 from pathlib import Path
 
+import io
+
 import numpy as np
 import pandas as pd
 
+
+class _Tee:
+    """Write to both the original stdout and an internal buffer."""
+    def __init__(self, orig):
+        self._orig = orig
+        self._buf = io.StringIO()
+
+    def write(self, data):
+        self._orig.write(data)
+        self._buf.write(data)
+
+    def flush(self):
+        self._orig.flush()
+
+    def getvalue(self) -> str:
+        return self._buf.getvalue()
+
+
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from src.backtest.config import load_instrument_configs, set_config, traded_instruments, required_fx_helpers
+from src.backtest.config import load_capital, load_instrument_configs, set_config, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.metrics import performance_report, TRADING_DAYS_PER_YEAR
 from src.backtest.pnl import gross_pnl, transaction_costs, to_usd
-from src.backtest.sizing import compute_positions
+from src.backtest.sizing import apply_inertia, compute_positions, round_to_lot
 from src.calibration import state as st
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
@@ -41,10 +62,8 @@ from src.rules.combine import combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
-IS_END   = pd.Timestamp("2010-01-01")
-VAL_END  = pd.Timestamp("2018-01-01")
-CAPITAL  = 10_000.0
-VOL_TGT  = 0.20  # default; overrideable via --vol-target
+_VOL_PLACEHOLDER = 0.20  # must match step5_calibrate._VOL_PLACEHOLDER so IS SR is comparable
+_ctx = {"capital": 100_000.0}  # mutable; main() sets the real value from config before computing
 
 GROUPS: dict[str, list[str]] = {
     "FX":       ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "USDCAD"],
@@ -56,32 +75,47 @@ GROUPS: dict[str, list[str]] = {
 }
 
 
-def _sr(pnl: pd.Series, capital: float = CAPITAL) -> float:
-    r = pnl / capital
+def _sr(pnl: pd.Series) -> float:
+    cap = _ctx["capital"]
+    r = pnl / cap
     if r.std() == 0 or len(r.dropna()) < 20:
         return float("nan")
     return float(r.mean() / r.std() * np.sqrt(TRADING_DAYS_PER_YEAR))
 
 
-def _ret(pnl: pd.Series, capital: float = CAPITAL) -> float:
+def _ret(pnl: pd.Series) -> float:
     n = len(pnl.dropna())
     if n == 0:
         return float("nan")
-    return float(pnl.sum() / capital * TRADING_DAYS_PER_YEAR / n)
+    return float(pnl.sum() / _ctx["capital"] * TRADING_DAYS_PER_YEAR / n)
 
 
-def _mdd(pnl: pd.Series, capital: float = CAPITAL) -> float:
+def _mdd(pnl: pd.Series) -> float:
     if len(pnl.dropna()) < 2:
         return float("nan")
-    # High-watermark drawdown: fraction of peak equity
-    r = pnl / capital
+    r = pnl / _ctx["capital"]
     equity = (1 + r).cumprod()
     hwm = equity.cummax()
     dd = (equity - hwm) / hwm
     return float(dd.min())
 
 
-def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT, report_dir=None) -> None:
+def main(state_dir=None, include_all: bool = False, vol_target: float | None = None, report_dir=None) -> dict:
+    # All metrics use _VOL_PLACEHOLDER (same as step5) so IS SR is directly comparable.
+    # The confirmed vol_target from step5.yaml is read for the footer display only.
+    vol_target_display: float | None = None
+    try:
+        vol_target_display = float(st.load_section("step5.yaml", "vol_target", state_dir=state_dir))
+    except Exception:
+        pass
+    vol_target = _VOL_PLACEHOLDER  # position sizing; ignore any passed-in override
+
+    capital = load_capital()
+    _ctx["capital"] = capital
+
+    # Use the same IS split date as step5 / run_portfolio
+    is_end = pd.Timestamp(compute_split_date())
+
     scalars_data  = st.load_section("step3.yaml", "scalars",           state_dir=state_dir)
     weights_data  = st.load_section("step3.yaml", "forecast_weights",  state_dir=state_dir)
     fdm_data      = st.load_section("step3.yaml", "fdm",               state_dir=state_dir)
@@ -101,6 +135,17 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
         codes = list(cfgs.keys())
     else:
         codes = traded_instruments(cfgs)
+
+    # Val/test boundary: midpoint of the OOS window, computed from price data.
+    # Avoids empty val periods when IS ends near or after a hard-coded date.
+    _data_ends = []
+    for _code in codes:
+        try:
+            _data_ends.append(load_adjusted_prices(_code).index.max())
+        except FileNotFoundError:
+            pass
+    data_end = pd.Timestamp(max(_data_ends)) if _data_ends else is_end + pd.DateOffset(years=4)
+    val_end = is_end + (data_end - is_end) / 2
 
     fx_helpers = required_fx_helpers(cfgs)
     all_fx_keys = set(fx_helpers) | {"EURUSD", "EURGBP", "USDJPY", "USDCAD"}
@@ -125,7 +170,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
             prices = load_adjusted_prices(code)
         except FileNotFoundError:
             continue
-        is_data, _ = split_series(prices, IS_END)
+        is_data, _ = split_series(prices, is_end)
         if len(is_data) < 20:
             continue
 
@@ -136,15 +181,16 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
         fx  = _fx_rate_to_usd(cfg.currency, eurusd, eurgbp, prices.index,
                               usdjpy_prices=usdjpy, usdcad_prices=usdcad)
 
-        # Combined forecast PnL
+        # Combined forecast PnL (with rounding and position inertia)
         fc = combined_forecast(prices, vol, fdm=fdm,
                                family_scalars=family_scalars,
                                rule_weights=rule_weights,
                                instrument_code=code)
         pos = compute_positions(prices=prices, vol=vol, forecast=fc["combined"],
-                                pointsize=cfg.pointsize, capital=CAPITAL,
+                                pointsize=cfg.pointsize, capital=capital,
                                 vol_target=vol_target, idm=idm, fx_rate_to_usd=fx,
                                 instrument_weight=w)
+        pos = apply_inertia(round_to_lot(pos, cfg.lot_step))
         gpnl_n  = gross_pnl(pos, prices, cfg.pointsize)
         costs_n = transaction_costs(pos, cfg.spread_cost, cfg.pointsize)
         combined_pnl[code] = to_usd(gpnl_n - costs_n, cfg.currency,
@@ -163,7 +209,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
                     continue
                 rule_fc = fc_df["SEASONALITY"].clip(-20, 20)
                 rule_pos = compute_positions(prices=prices, vol=vol, forecast=rule_fc,
-                                            pointsize=cfg.pointsize, capital=CAPITAL,
+                                            pointsize=cfg.pointsize, capital=capital,
                                             vol_target=vol_target, idm=idm, fx_rate_to_usd=fx,
                                             instrument_weight=w)
                 gpnl_r = gross_pnl(rule_pos, prices, cfg.pointsize)
@@ -178,7 +224,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
                 raw = handler.compute_one_raw(prices, variant, vol, instrument_code=code)
                 rule_fc = (raw * scalar).clip(-20, 20)
                 rule_pos = compute_positions(prices=prices, vol=vol, forecast=rule_fc,
-                                            pointsize=cfg.pointsize, capital=CAPITAL,
+                                            pointsize=cfg.pointsize, capital=capital,
                                             vol_target=vol_target, idm=idm, fx_rate_to_usd=fx,
                                             instrument_weight=w)
                 gpnl_r = gross_pnl(rule_pos, prices, cfg.pointsize)
@@ -186,10 +232,13 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
                                                    eurusd, eurgbp, usdjpy, usdcad)
 
     def _split3(pnl: pd.Series):
-        is_p   = pnl[pnl.index < IS_END]
-        val_p  = pnl[(pnl.index >= IS_END) & (pnl.index < VAL_END)]
-        test_p = pnl[pnl.index >= VAL_END]
+        is_p   = pnl[pnl.index < is_end]
+        val_p  = pnl[(pnl.index >= is_end) & (pnl.index < val_end)]
+        test_p = pnl[pnl.index >= val_end]
         return is_p, val_p, test_p
+
+    tee = _Tee(sys.stdout)
+    sys.stdout = tee
 
     if include_all:
         print("  (--include-all: showing all instruments regardless of 'traded' flag)")
@@ -198,7 +247,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
 
     # ── TABLE 1: Per-instrument IS | Val | Test SR ───────────────────────────
     print("\n" + "=" * 78)
-    print("  TABLE 1 — Per-instrument SR  (IS 1984–2010 | Val 2010–2017 | Test 2018–2026)")
+    print(f"  TABLE 1 — Per-instrument SR  (IS –{is_end.year} | Val {is_end.year}–{val_end.year} | Test {val_end.year}–)")
     print("=" * 78)
     hdr = (f"  {'Instrument':<12} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
            f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
@@ -235,7 +284,7 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
 
     # ── TABLE 2: Per-asset-class IS | Val | Test SR ──────────────────────────
     print("\n" + "=" * 78)
-    print("  TABLE 2 — Asset class SR  (IS 1984–2010 | Val 2010–2017 | Test 2018–2026)")
+    print(f"  TABLE 2 — Asset class SR  (IS –{is_end.year} | Val {is_end.year}–{val_end.year} | Test {val_end.year}–)")
     print("=" * 78)
     hdr2 = (f"  {'Asset class':<14} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
             f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
@@ -328,11 +377,104 @@ def main(state_dir=None, include_all: bool = False, vol_target: float = VOL_TGT,
     print(f"  {'COMBINED':<16} {'':>5} {_sr(port_is):>7.2f} {_sr(port_val):>8.2f} {_sr(port_test):>8.2f}"
           f"  {_ret(port_is):>6.1%} {_ret(port_val):>8.1%} {_ret(port_test):>9.1%}")
     print()
-    print(f"  Vol target: {vol_target:.0%}   Capital: ${CAPITAL:,.0f}")
-    print("  Note: rule/family SR uses isolated single-rule positions (no FDM).")
+    confirmed_str = f"  (confirmed vol target: {vol_target_display:.0%})" if vol_target_display else ""
+    print(f"  Metrics computed at vol placeholder: {vol_target:.0%}{confirmed_str}   Capital: ${capital:,.0f}")
+    print("  Note: rule/family SR uses isolated single-rule positions (no FDM, no rounding, no inertia).")
     print("  Family SR = equal-weight mean across member rules.")
-    print("  Combined SR uses full calibrated parameters (FDMs, IDM, instrument weights).")
+    print("  Combined SR uses full calibrated parameters (FDMs, IDM, instrument weights, rounding, inertia).")
     print("  (* = Val SR < -0.30   [excl] = excluded in active config)")
+
+    sys.stdout = tee._orig
+    _md_content = tee.getvalue()
+
+    # ── Build structured results and save step6.yaml ─────────────────────────
+    def _row(is_s, val_s, test_s):
+        return {
+            "is":   {"sr": round(_sr(is_s), 3),  "ret": round(_ret(is_s), 4)},
+            "val":  {"sr": round(_sr(val_s), 3),  "ret": round(_ret(val_s), 4)},
+            "test": {"sr": round(_sr(test_s), 3), "ret": round(_ret(test_s), 4)},
+        }
+
+    instruments_out = {}
+    for grp_codes in GROUPS.values():
+        for code in grp_codes:
+            if code not in inst_is_pnl:
+                continue
+            row = _row(inst_is_pnl[code], inst_val_pnl[code], inst_test_pnl[code])
+            row["val_flagged"] = _sr(inst_val_pnl[code]) < -0.30
+            instruments_out[code] = row
+
+    asset_classes_out = {}
+    for grp_name, grp_codes in GROUPS.items():
+        grp_is   = pd.DataFrame({c: inst_is_pnl[c]   for c in grp_codes if c in inst_is_pnl}).fillna(0).sum(axis=1)
+        grp_val  = pd.DataFrame({c: inst_val_pnl[c]  for c in grp_codes if c in inst_val_pnl}).fillna(0).sum(axis=1)
+        grp_test = pd.DataFrame({c: inst_test_pnl[c] for c in grp_codes if c in inst_test_pnl}).fillna(0).sum(axis=1)
+        if grp_is.empty:
+            continue
+        asset_classes_out[grp_name] = _row(grp_is, grp_val, grp_test)
+
+    rules_out = {}
+    for rule in all_rules:
+        r_pnl = rule_pnl.get(rule, {})
+        if not r_pnl:
+            continue
+        r_is   = pd.DataFrame({c: _split3(s)[0] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
+        r_val  = pd.DataFrame({c: _split3(s)[1] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
+        r_test = pd.DataFrame({c: _split3(s)[2] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
+        rules_out[rule] = _row(r_is, r_val, r_test)
+
+    families_out = {}
+    for fam_name, fam_rules in family_map.items():
+        fam_is_parts, fam_val_parts, fam_test_parts = [], [], []
+        for rule in fam_rules:
+            r_pnl = rule_pnl.get(rule, {})
+            if not r_pnl:
+                continue
+            fam_is_parts.append(pd.DataFrame({c: _split3(s)[0] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
+            fam_val_parts.append(pd.DataFrame({c: _split3(s)[1] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
+            fam_test_parts.append(pd.DataFrame({c: _split3(s)[2] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
+        if not fam_is_parts:
+            continue
+        row = _row(
+            pd.concat(fam_is_parts,   axis=1).fillna(0).mean(axis=1),
+            pd.concat(fam_val_parts,  axis=1).fillna(0).mean(axis=1),
+            pd.concat(fam_test_parts, axis=1).fillna(0).mean(axis=1),
+        )
+        row["n_rules"] = len(fam_rules)
+        families_out[fam_name] = row
+
+    val_weak = [c for c, v in instruments_out.items() if v["val_flagged"]]
+
+    portfolio_row = _row(port_is, port_val, port_test)
+    portfolio_row["is"]["max_dd"]   = round(_mdd(port_is),   4)
+    portfolio_row["val"]["max_dd"]  = round(_mdd(port_val),  4)
+    portfolio_row["test"]["max_dd"] = round(_mdd(port_test), 4)
+
+    if report_dir is None:
+        report_dir = Path(state_dir).parent / "results" if state_dir else None
+
+    if report_dir is not None:
+        md_path = Path(report_dir) / "step6.md"
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(md_path, "w") as f:
+            f.write("```\n")
+            f.write(_md_content)
+            f.write("```\n")
+        print(f"\n  Results saved → {md_path}")
+
+    summary = {
+        "is_sr":         portfolio_row["is"]["sr"],
+        "val_sr":        portfolio_row["val"]["sr"],
+        "test_sr":       portfolio_row["test"]["sr"],
+        "is_ret":        portfolio_row["is"]["ret"],
+        "val_ret":       portfolio_row["val"]["ret"],
+        "test_ret":      portfolio_row["test"]["ret"],
+        "is_max_dd":     portfolio_row["is"]["max_dd"],
+        "val_max_dd":    portfolio_row["val"]["max_dd"],
+        "test_max_dd":   portfolio_row["test"]["max_dd"],
+        "val_weak_flags": val_weak,
+    }
+    return summary
 
 
 if __name__ == "__main__":
@@ -341,8 +483,8 @@ if __name__ == "__main__":
                         metavar="PATH", help="System directory (default: systems/universe_v4)")
     parser.add_argument("--include-all", action="store_true",
                         help="Include all instruments regardless of 'traded: false'")
-    parser.add_argument("--vol-target", type=float, default=VOL_TGT,
-                        metavar="FLOAT", help=f"Volatility target (default: {VOL_TGT})")
+    parser.add_argument("--vol-target", type=float, default=None,
+                        metavar="FLOAT", help="Override vol target (default: read from step5.yaml)")
     args = parser.parse_args()
 
     root = Path(__file__).parents[1]

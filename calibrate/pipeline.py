@@ -55,7 +55,7 @@ STEPS: list[Step] = [
     Step("3",   "calibrate.step3_rules",               "step3.yaml",  "fdm",         True,  "Step 3   — Rule correlations, trading speed, forecast weights [USER EDITS]"),
     Step("4",   "calibrate.step4a_instrument_weights", "step4.yaml",  "idm",         True,  "Step 4   — Instrument weights and IDM [USER INPUT]"),
     Step("5",   "calibrate.step5_calibrate",           "step5.yaml",  "vol_target",  True,  "Step 5   — IS backtest and volatility target [USER CONFIRMS]"),
-    Step("oos", "calibrate.oos_validation",            None,          None,          False, "OOS      — IS vs Val SR breakdown (run after locking all steps)"),
+    Step("oos", "calibrate.oos_validation",            None,          None,          False, "OOS      — IS vs Val vs Test SR breakdown → step6.md"),
 ]
 
 
@@ -226,7 +226,7 @@ def main() -> None:
             traceback.print_exc()
             sys.exit(1)
 
-        if step.requires_user and isinstance(result, dict):
+        if isinstance(result, dict):
             _log_step_values(step, result, results_dir)
 
         print(f"\n  {step.description} — complete.")
