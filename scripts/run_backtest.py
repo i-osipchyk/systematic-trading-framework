@@ -15,7 +15,7 @@ from src.backtest.metrics import annual_turnover, performance_report
 
 def main():
     parser = argparse.ArgumentParser(description="Run IS/OOS backtest")
-    parser.add_argument("--capital",    type=float, default=10_000.0,
+    parser.add_argument("--capital",    type=float, default=100_000.0,
                         help="Starting capital in USD (default: 10,000)")
     parser.add_argument("--vol-target", type=float, default=0.15,
                         help="Annual volatility target 0–1 (default: 0.20)")

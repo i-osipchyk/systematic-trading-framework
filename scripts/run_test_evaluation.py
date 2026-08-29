@@ -124,7 +124,7 @@ def main(setup_dir: Path, state_dir: Path) -> None:
 
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
-    capital = 10_000.0
+    capital = 100_000.0
 
     print(f"\n  {'='*60}")
     print(f"  Blind test evaluation")

@@ -29,19 +29,28 @@ def compute_split_date(
 
     If the active config specifies a split_date, that value is returned
     directly. Otherwise, the split is computed as a calendar-time fraction of
-    the common data window across all instruments.
+    the common data window across all instruments, subject to two optional
+    config overrides:
+      - start_date: floor for common_start (excludes low-quality early data)
+      - test_size:  overrides the default 0.30 OOS fraction
 
     Returns the first date that belongs to the OOS period.
     """
-    from src.backtest.config import load_split_date
+    from src.backtest.config import load_split_date, load_start_date, load_test_size
     explicit = load_split_date()
     if explicit is not None:
         return explicit
 
     if instrument_codes is None:
-        instrument_codes = [
-            p.stem for p in adjusted_prices_dir().glob("*.csv")
-        ]
+        # Use only the instruments that are traded in the active config.
+        # Scanning the whole data directory can include instruments with much
+        # shorter histories (e.g. BTC, ETH) that shift common_start forward
+        # and produce a meaninglessly late split date.
+        try:
+            from src.backtest.config import load_instrument_configs, traded_instruments
+            instrument_codes = traded_instruments(load_instrument_configs())
+        except Exception:
+            instrument_codes = [p.stem for p in adjusted_prices_dir().glob("*.csv")]
 
     starts, ends = [], []
     for code in instrument_codes:
@@ -51,6 +60,18 @@ def compute_split_date(
 
     common_start = max(starts)
     common_end = min(ends)
+
+    # Clamp IS start to start_date if configured (removes low-quality early data)
+    config_start = load_start_date()
+    if config_start is not None and config_start > common_start:
+        common_start = config_start
+
+    # Use test_size from config when caller did not override train_frac
+    if train_frac == TRAIN_FRAC:
+        test_size = load_test_size()
+        if test_size is not None:
+            train_frac = 1.0 - test_size
+
     total_span = common_end - common_start
     split_date = common_start + train_frac * total_span
     return split_date

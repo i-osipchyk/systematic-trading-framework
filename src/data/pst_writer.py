@@ -48,6 +48,9 @@ def multiple_prices_dir(timeframe: str | None = None) -> Path:
 def write_adjusted_prices(df: pd.DataFrame, instrument_code: str, timeframe: str | None = None) -> Path:
     """Write close prices as pysystemtrade adjusted prices CSV.
 
+    Merges with any existing file so that incremental fetches never overwrite
+    historical data. New bars take precedence over existing rows on the same date.
+
     Args:
         df: DataFrame with DATETIME and CLOSE columns.
         instrument_code: Framework instrument code (e.g. 'BTC').
@@ -56,17 +59,28 @@ def write_adjusted_prices(df: pd.DataFrame, instrument_code: str, timeframe: str
     Returns:
         Path to written file.
     """
-    series = df.set_index("DATETIME")["CLOSE"].rename("price")
-    series.index = pd.to_datetime(series.index)
-    series.index.name = "DATETIME"
+    new_series = df.set_index("DATETIME")["CLOSE"].rename("price")
+    new_series.index = pd.to_datetime(new_series.index)
+    new_series.index.name = "DATETIME"
 
     out_path = adjusted_prices_dir(timeframe) / f"{instrument_code}.csv"
-    series.to_csv(out_path, date_format=PST_DATE_FMT, header=True)
+    if out_path.exists():
+        existing = pd.read_csv(out_path, index_col="DATETIME", parse_dates=True)["price"]
+        # Combine: existing first, new bars override on overlap, sort by date
+        merged = pd.concat([existing[~existing.index.isin(new_series.index)], new_series])
+        merged = merged.sort_index()
+        merged.index.name = "DATETIME"
+        merged.to_csv(out_path, date_format=PST_DATE_FMT, header=True)
+    else:
+        new_series.to_csv(out_path, date_format=PST_DATE_FMT, header=True)
     return out_path
 
 
 def write_multiple_prices(df: pd.DataFrame, instrument_code: str, timeframe: str | None = None) -> Path:
     """Write multiple-prices CSV (needed for pysystemtrade's full data model).
+
+    Merges with any existing file so incremental fetches never overwrite
+    historical data. New bars take precedence over existing rows on the same date.
 
     For CFDs: PRICE = CARRY = FORWARD = CLOSE. All contract columns use the
     dummy date 29991200 since CFDs have no expiry.
@@ -74,17 +88,24 @@ def write_multiple_prices(df: pd.DataFrame, instrument_code: str, timeframe: str
     prices = df.set_index("DATETIME")["CLOSE"]
     prices.index = pd.to_datetime(prices.index)
 
-    out = pd.DataFrame(index=prices.index)
-    out.index.name = "DATETIME"
-    out["PRICE"] = prices
-    out["CARRY"] = prices
-    out["FORWARD"] = prices
-    out["PRICE_CONTRACT"] = DUMMY_CONTRACT
-    out["CARRY_CONTRACT"] = DUMMY_CONTRACT
-    out["FORWARD_CONTRACT"] = DUMMY_CONTRACT
+    new_out = pd.DataFrame(index=prices.index)
+    new_out.index.name = "DATETIME"
+    new_out["PRICE"] = prices
+    new_out["CARRY"] = prices
+    new_out["FORWARD"] = prices
+    new_out["PRICE_CONTRACT"] = DUMMY_CONTRACT
+    new_out["CARRY_CONTRACT"] = DUMMY_CONTRACT
+    new_out["FORWARD_CONTRACT"] = DUMMY_CONTRACT
 
     out_path = multiple_prices_dir(timeframe) / f"{instrument_code}.csv"
-    out.to_csv(out_path, date_format=PST_DATE_FMT)
+    if out_path.exists():
+        existing = pd.read_csv(out_path, index_col="DATETIME", parse_dates=True)
+        merged = pd.concat([existing[~existing.index.isin(new_out.index)], new_out])
+        merged = merged.sort_index()
+        merged.index.name = "DATETIME"
+        merged.to_csv(out_path, date_format=PST_DATE_FMT)
+    else:
+        new_out.to_csv(out_path, date_format=PST_DATE_FMT)
     return out_path
 
 
