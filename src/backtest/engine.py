@@ -9,7 +9,7 @@ import pandas as pd
 from src.backtest.config import InstrumentConfig, load_instrument_configs, traded_instruments as _traded
 from src.backtest.idm import compute_idm
 from src.backtest.pnl import gross_pnl, to_usd, transaction_costs
-from src.backtest.sizing import compute_positions
+from src.backtest.sizing import apply_inertia, compute_positions, round_to_lot
 from src.data.pst_writer import load_adjusted_prices
 from src.data.splits import compute_split_date, split_series
 from src.rules.combine import calibrate_fdm, combined_forecast
@@ -135,6 +135,7 @@ def run_instrument(
         fx_rate_to_usd=fx,
         instrument_weight=cfg.weight,
     )
+    positions = apply_inertia(round_to_lot(positions, cfg.lot_step))
 
     gpnl = gross_pnl(positions, prices, cfg.pointsize)
     costs = transaction_costs(positions, cfg.spread_cost, cfg.pointsize)
@@ -164,6 +165,7 @@ def run_portfolio(
     calibrated_idm: float | None = None,
     family_scalars: dict[str, dict] | None = None,
     rule_weights: dict[str, float] | None = None,
+    instrument_weights: dict[str, float] | None = None,
 ) -> BacktestResult:
     """Two-pass portfolio backtest.
 
@@ -172,20 +174,33 @@ def run_portfolio(
     Pass 2: Rerun with calibrated IDM and cached FDMs.
 
     Args:
-        calibrated_fdms: If provided, skip FDM calibration in pass 1 and use
-                         these FDMs directly. Pass 1 still runs to build IS returns
-                         for IDM computation unless calibrated_idm is also given.
-        calibrated_idm:  If provided, skip IDM computation and use this value.
-                         If both calibrated_fdms and calibrated_idm are given,
-                         pass 1 is skipped entirely.
-        family_scalars:  Override scalars for all rule families, passed to
-                         run_instrument().
-        rule_weights:    Per-rule combination weights, passed to run_instrument().
+        calibrated_fdms:    If provided, skip FDM calibration in pass 1 and use
+                            these FDMs directly. Pass 1 still runs to build IS returns
+                            for IDM computation unless calibrated_idm is also given.
+        calibrated_idm:     If provided, skip IDM computation and use this value.
+                            If both calibrated_fdms and calibrated_idm are given,
+                            pass 1 is skipped entirely.
+        family_scalars:     Override scalars for all rule families, passed to
+                            run_instrument().
+        rule_weights:       Per-rule combination weights, passed to run_instrument().
+        instrument_weights: Calibrated portfolio weights keyed by instrument code.
+                            When provided, overrides the weight field in each
+                            instrument's config. Use this instead of monkey-patching
+                            load_instrument_configs(), since engine.py holds a direct
+                            reference to the original function.
     """
     if split_date is None:
         split_date = compute_split_date()
 
     cfgs = load_instrument_configs()
+
+    # Apply calibrated instrument weights when provided (overrides config defaults)
+    if instrument_weights:
+        from dataclasses import replace as _replace
+        cfgs = {
+            code: _replace(cfg, weight=instrument_weights.get(code, cfg.weight))
+            for code, cfg in cfgs.items()
+        }
 
     # FX series needed for currency conversion throughout
     eurusd_prices = load_adjusted_prices("EURUSD")

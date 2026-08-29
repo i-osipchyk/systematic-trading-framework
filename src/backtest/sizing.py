@@ -4,6 +4,28 @@ import pandas as pd
 from src.backtest.config import load_bars_per_year
 
 
+def round_to_lot(positions: pd.Series, lot_step: float) -> pd.Series:
+    """Round positions to the nearest lot_step increment."""
+    if lot_step <= 0:
+        return positions
+    return (np.round(positions / lot_step) * lot_step).rename(positions.name)
+
+
+def apply_inertia(target: pd.Series, buffer_fraction: float = 0.10) -> pd.Series:
+    """Hold current position unless new target differs by more than buffer_fraction of target.
+
+    Avoids churning on small forecast changes that don't justify transaction costs.
+    """
+    values = target.to_numpy(dtype=float)
+    held = np.empty(len(values))
+    current = 0.0
+    for i, tgt in enumerate(values):
+        if abs(tgt - current) > buffer_fraction * abs(tgt):
+            current = tgt
+        held[i] = current
+    return pd.Series(held, index=target.index, name=target.name)
+
+
 def compute_positions(
     prices: pd.Series,
     vol: pd.Series,

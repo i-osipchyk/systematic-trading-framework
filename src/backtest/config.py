@@ -143,6 +143,36 @@ def load_split_date() -> datetime | None:
     return None
 
 
+def load_start_date() -> datetime | None:
+    """Return the IS data floor from config, or None if not set.
+
+    When set, compute_split_date clamps common_start to this date, excluding
+    any earlier data that may be low-quality (e.g. monthly FRED series
+    forward-filled as daily).
+    """
+    from datetime import datetime, date
+    raw = _load_raw()
+    val = raw.get("start_date")
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return datetime.strptime(val, "%Y-%m-%d")
+    if isinstance(val, date):
+        return datetime(val.year, val.month, val.day)
+    return None
+
+
+def load_test_size() -> float | None:
+    """Return the OOS fraction from config, or None if not set.
+
+    When set, compute_split_date uses (1 - test_size) as train_frac instead
+    of the hardcoded default of 0.70.
+    """
+    raw = _load_raw()
+    val = raw.get("test_size")
+    return float(val) if val is not None else None
+
+
 def traded_instruments(cfgs: dict[str, InstrumentConfig]) -> list[str]:
     """Return codes of instruments marked traded=true, in config file order."""
     return [code for code, cfg in cfgs.items() if cfg.traded]
