@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -31,8 +30,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.backtest.config import (
-    load_capital, load_instrument_configs, load_rules_config, required_fx_helpers,
-    set_config, traded_instruments,
+    load_capital, load_instrument_configs, set_config, traded_instruments,
 )
 from src.backtest.engine import run_portfolio
 from src.backtest.metrics import annual_turnover, performance_report
@@ -61,26 +59,17 @@ def main(state_dir=None, report_dir=None) -> dict:
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
 
-    # Patch instrument weights into configs
-    patched_cfgs = {code: replace(cfg, weight=instrument_weights.get(code, cfg.weight))
-                   for code, cfg in cfgs.items()}
-    import src.backtest.config as _cfg_mod
-    _orig = _cfg_mod.load_instrument_configs
-    _cfg_mod.load_instrument_configs = lambda: patched_cfgs  # type: ignore[assignment]
-
     print(f"  Running IS portfolio (vol={_VOL_PLACEHOLDER:.0%} placeholder, IDM={idm:.3f})...")
-    try:
-        result = run_portfolio(
-            instruments=instruments,
-            capital=capital,
-            vol_target=_VOL_PLACEHOLDER,
-            calibrated_fdms=calibrated_fdms,
-            calibrated_idm=idm,
-            family_scalars=family_scalars,
-            rule_weights=rule_weights,
-        )
-    finally:
-        _cfg_mod.load_instrument_configs = _orig
+    result = run_portfolio(
+        instruments=instruments,
+        capital=capital,
+        vol_target=_VOL_PLACEHOLDER,
+        calibrated_fdms=calibrated_fdms,
+        calibrated_idm=idm,
+        family_scalars=family_scalars,
+        rule_weights=rule_weights,
+        instrument_weights=instrument_weights,
+    )
 
     split = result.split_date
     is_pnl = result.is_pnl

@@ -25,7 +25,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.calibration import state as st
-from src.backtest.config import load_bars_per_year, load_instrument_configs, traded_instruments, required_fx_helpers
+from src.backtest.config import load_bars_per_year, load_capital, load_instrument_configs, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
 from src.backtest.sizing import compute_positions
 from src.data.pst_writer import load_adjusted_prices
@@ -107,7 +107,7 @@ def main(state_dir=None, split_date=None) -> None:
                     forecast = fc_df["SEASONALITY"].clip(-20, 20)
                     pos = compute_positions(
                         prices=is_prices, vol=vol_is, forecast=forecast,
-                        pointsize=cfg.pointsize, capital=10_000.0,
+                        pointsize=cfg.pointsize, capital=load_capital(),
                         vol_target=0.15, idm=1.0, fx_rate_to_usd=fx,
                         instrument_weight=1.0,
                     )
@@ -121,7 +121,7 @@ def main(state_dir=None, split_date=None) -> None:
                 forecast = (raw * scalar).clip(-20, 20)
                 pos = compute_positions(
                     prices=is_prices, vol=vol_is, forecast=forecast,
-                    pointsize=cfg.pointsize, capital=10_000.0,
+                    pointsize=cfg.pointsize, capital=load_capital(),
                     vol_target=0.15, idm=1.0, fx_rate_to_usd=fx,
                     instrument_weight=1.0,
                 )

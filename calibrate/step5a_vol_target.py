@@ -53,7 +53,7 @@ def _run_is_portfolio(
     fdm_data: dict,
     instrument_weights: dict[str, float],
     idm: float,
-    capital: float = 10_000.0,
+    capital: float = 100_000.0,
 ) -> float:
     """Run IS-only portfolio with calibrated weights and return IS Sharpe ratio."""
     cfgs = load_instrument_configs()

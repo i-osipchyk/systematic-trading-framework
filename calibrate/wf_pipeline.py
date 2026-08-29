@@ -451,7 +451,7 @@ def main() -> None:
                         help="Minimum IS window in years (default: 2)")
     parser.add_argument("--oos-years", type=int, default=1,
                         help="OOS window per fold in years (default: 1)")
-    parser.add_argument("--capital", type=float, default=10_000.0)
+    parser.add_argument("--capital", type=float, default=100_000.0)
     parser.add_argument("--resume", type=str, default=None,
                         help="Resume an existing WF run directory")
     parser.add_argument("--from-fold", type=int, default=1,

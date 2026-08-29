@@ -57,7 +57,7 @@ def main(state_dir=None, split_date=None, report_dir=None) -> None:
     instruments = traded_instruments(cfgs)
     if split_date is None:
         split_date = compute_split_date(instruments)
-    capital = 10_000.0
+    capital = load_capital()
 
     fx_helper_codes = required_fx_helpers(cfgs)
     fx_prices_map = {code: load_adjusted_prices(code) for code in fx_helper_codes}

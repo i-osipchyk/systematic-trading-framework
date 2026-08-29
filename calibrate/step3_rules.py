@@ -29,7 +29,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.backtest.config import (
-    load_bars_per_year, load_instrument_configs, load_rules_config, set_config,
+    load_bars_per_year, load_capital, load_instrument_configs, load_rules_config, set_config,
     traded_instruments, required_fx_helpers,
 )
 from src.backtest.engine import _fx_rate_to_usd
@@ -201,7 +201,7 @@ def _compute_corr_and_turnover(
                     fc_cols["SEASONALITY"] = forecast
                     pos = compute_positions(
                         prices=is_prices, vol=vol_is, forecast=forecast,
-                        pointsize=cfg.pointsize, capital=10_000.0,
+                        pointsize=cfg.pointsize, capital=load_capital(),
                         vol_target=0.15, idm=1.0, fx_rate_to_usd=fx,
                         instrument_weight=1.0,
                     )
@@ -215,7 +215,7 @@ def _compute_corr_and_turnover(
                 fc_cols[rule_name] = forecast
                 pos = compute_positions(
                     prices=is_prices, vol=vol_is, forecast=forecast,
-                    pointsize=cfg.pointsize, capital=10_000.0,
+                    pointsize=cfg.pointsize, capital=load_capital(),
                     vol_target=0.15, idm=1.0, fx_rate_to_usd=fx,
                     instrument_weight=1.0,
                 )
@@ -381,6 +381,8 @@ def _write_weights_template(
 
 def _fmt_corr_table_text(corr: pd.DataFrame) -> list[str]:
     rules = list(corr.index)
+    if not rules:
+        return ["  (no rules computed — check that price data covers the IS window)"]
     label_w = max(len(r) for r in rules)
     col_w = 7
     lines = []

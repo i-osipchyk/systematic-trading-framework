@@ -18,7 +18,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.calibration import state as st
-from src.backtest.config import load_instrument_configs, traded_instruments
+from src.backtest.config import load_capital, load_instrument_configs, traded_instruments
 from src.backtest.engine import INSTRUMENTS, run_portfolio
 from src.backtest.metrics import annual_turnover, performance_report
 from src.rules.registry import REGISTRY
@@ -69,7 +69,7 @@ def main(state_dir=None) -> None:
     try:
         result = run_portfolio(
             instruments=instruments,
-            capital=10_000.0,
+            capital=load_capital(),
             vol_target=vol_target,
             calibrated_fdms=calibrated_fdms,
             calibrated_idm=calibrated_idm,
