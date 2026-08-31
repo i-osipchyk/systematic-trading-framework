@@ -1,0 +1,5 @@
+forecast_weights:
+  EWMAC_8_32:   0.250000
+  EWMAC_16_64:  0.250000
+  EWMAC_32_128: 0.250000
+  EWMAC_64_256: 0.250000

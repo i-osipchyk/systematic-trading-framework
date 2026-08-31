@@ -1,0 +1,7 @@
+timeframe: D1
+bars_per_year: 256
+end_date: "2010-01-01"
+split_date: "2010-01-01"   # standalone calibration scripts treat all data as IS
+capital: 100000            # assumed account capital in USD for position size checks
+start_date: "2001-01-01"   # floor for IS start: pre-2001 data is monthly FRED forward-filled, not daily
+test_size: 0.3             # OOS fraction; IS fraction = 1 - test_size

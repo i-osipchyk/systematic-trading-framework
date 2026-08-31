@@ -1,0 +1,16 @@
+# Individual forecast weights — Step 2 of 2
+# ─────────────────────────────────────────────────────────────────
+# Derived from family_weights. Edit individual weights if needed.
+# Must sum to 1.0 (tolerance ±0.005).
+#
+forecast_weights:
+  # Family: ema_crossover (family weight: 0.00 → 0.0000 per rule)
+  EWMAC_2_8: 0.0  # ema_crossover: 0.00 / 6
+  EWMAC_4_16: 0.0
+  EWMAC_8_32: 0.0
+  EWMAC_16_64: 0.0
+  EWMAC_32_128: 0.0
+  EWMAC_64_256: 0.0
+  # Family: mean_reversion (family weight: 1.00 → 0.5000 per rule)
+  MR_16: 0.5  # mean_reversion: 1.00 / 2
+  MR_200: 0.5

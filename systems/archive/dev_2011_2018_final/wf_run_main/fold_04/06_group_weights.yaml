@@ -1,0 +1,4 @@
+group_weights:
+  currency: 0.50
+  index: 0.125
+  commodity: 0.375

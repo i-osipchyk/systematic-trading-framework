@@ -1,0 +1,16 @@
+# MR-heavy — EWMAC 20%, Breakout 10%, TSMOM 20%, MR 50%
+forecast_weights:
+  EWMAC_4_16:   0.04
+  EWMAC_8_32:   0.04
+  EWMAC_16_64:  0.04
+  EWMAC_32_128: 0.04
+  EWMAC_64_256: 0.04
+  BREAKOUT_20:  0.025
+  BREAKOUT_50:  0.025
+  BREAKOUT_100: 0.025
+  BREAKOUT_200: 0.025
+  TSMOM_63:     0.06667
+  TSMOM_126:    0.06667
+  TSMOM_252:    0.06667
+  MR_16:        0.25
+  MR_200:       0.25

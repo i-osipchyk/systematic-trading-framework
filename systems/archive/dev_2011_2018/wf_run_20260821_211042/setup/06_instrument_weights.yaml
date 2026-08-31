@@ -1,0 +1,18 @@
+# Individual instrument weights — Step 2 of 2
+# ─────────────────────────────────────────────────────────────────
+# Derived from group_weights. Edit individual weights if needed.
+# Must sum to 1.0 (tolerance ±0.005).
+#
+instrument_weights:
+  # Group: currency (group weight: 0.33 → 0.0666 per instrument)
+  EURUSD: 0.1066  # currency: 0.33 / 5
+  GBPUSD: 0.1066
+  AUDUSD: 0.1066
+  USDJPY: 0.1066
+  USDX: 0.1066
+  # Group: index (group weight: 0.33 → 0.3330 per instrument)
+  US500: 0.133  # index: 0.33 / 1
+  # Group: commodity (group weight: 0.33 → 0.1113 per instrument)
+  XAU: 0.111333  # commodity: 0.33 / 3
+  XAG: 0.111333
+  COPPER: 0.111333

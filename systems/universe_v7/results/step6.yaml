@@ -1,0 +1,308 @@
+portfolio:
+  is:
+    sr: 0.876
+    ret: 0.2489
+    max_dd: -0.5091
+  val:
+    sr: 0.82
+    ret: 0.1698
+    max_dd: -0.335
+  test:
+    sr: 0.276
+    ret: 0.0544
+    max_dd: -0.2731
+asset_classes:
+  Equities:
+    is:
+      sr: 0.749
+      ret: 0.0868
+    val:
+      sr: 0.375
+      ret: 0.052
+    test:
+      sr: 0.316
+      ret: 0.0399
+  Bonds:
+    is:
+      sr: 0.323
+      ret: 0.0437
+    val:
+      sr: 0.598
+      ret: 0.0632
+    test:
+      sr: 0.137
+      ret: 0.0159
+  Metals:
+    is:
+      sr: 0.278
+      ret: 0.0301
+    val:
+      sr: 0.494
+      ret: 0.0203
+    test:
+      sr: 0.683
+      ret: 0.033
+  Energy:
+    is:
+      sr: 0.064
+      ret: 0.0017
+    val:
+      sr: 0.583
+      ret: 0.0237
+    test:
+      sr: -0.366
+      ret: -0.0092
+  Ags:
+    is:
+      sr: 0.545
+      ret: 0.119
+    val:
+      sr: 0.14
+      ret: 0.0114
+    test:
+      sr: -0.36
+      ret: -0.026
+rules:
+  EWMAC_8_32:
+    is:
+      sr: 0.693
+      ret: 0.1408
+    val:
+      sr: 0.643
+      ret: 0.1379
+    test:
+      sr: -0.193
+      ret: -0.0365
+  EWMAC_16_64:
+    is:
+      sr: 0.673
+      ret: 0.1964
+    val:
+      sr: 0.951
+      ret: 0.2043
+    test:
+      sr: 0.034
+      ret: 0.0066
+  EWMAC_32_128:
+    is:
+      sr: 0.574
+      ret: 0.2095
+    val:
+      sr: 0.849
+      ret: 0.1799
+    test:
+      sr: 0.233
+      ret: 0.0511
+  EWMAC_64_256:
+    is:
+      sr: 0.495
+      ret: 0.1745
+    val:
+      sr: 0.535
+      ret: 0.1097
+    test:
+      sr: 0.535
+      ret: 0.1318
+  SEASONALITY:
+    is:
+      sr: 1.467
+      ret: 0.3441
+    val:
+      sr: 0.423
+      ret: 0.0874
+    test:
+      sr: 0.438
+      ret: 0.0958
+families:
+  Trend:
+    is:
+      sr: 0.677
+      ret: 0.1803
+    val:
+      sr: 0.843
+      ret: 0.1579
+    test:
+      sr: 0.217
+      ret: 0.0382
+    n_rules: 4
+  Seasonality:
+    is:
+      sr: 1.467
+      ret: 0.3441
+    val:
+      sr: 0.423
+      ret: 0.0874
+    test:
+      sr: 0.438
+      ret: 0.0958
+    n_rules: 1
+instruments:
+  US500:
+    is:
+      sr: 0.424
+      ret: 0.0233
+    val:
+      sr: 0.567
+      ret: 0.0372
+    test:
+      sr: 0.386
+      ret: 0.0224
+    val_flagged: false
+  GER40:
+    is:
+      sr: 0.468
+      ret: 0.0245
+    val:
+      sr: 0.027
+      ret: 0.0013
+    test:
+      sr: 0.118
+      ret: 0.0063
+    val_flagged: false
+  JPN225:
+    is:
+      sr: 0.506
+      ret: 0.0269
+    val:
+      sr: 0.101
+      ret: 0.0046
+    test:
+      sr: 0.424
+      ret: 0.0188
+    val_flagged: false
+  HK50:
+    is:
+      sr: 0.54
+      ret: 0.0299
+    val:
+      sr: 0.185
+      ret: 0.0097
+    test:
+      sr: -0.151
+      ret: -0.0075
+    val_flagged: false
+  US10YR:
+    is:
+      sr: 0.433
+      ret: 0.0252
+    val:
+      sr: 0.598
+      ret: 0.037
+    test:
+      sr: 0.064
+      ret: 0.0032
+    val_flagged: false
+  BUND:
+    is:
+      sr: 0.218
+      ret: 0.0365
+    val:
+      sr: 0.323
+      ret: 0.0275
+    test:
+      sr: 0.125
+      ret: 0.0128
+    val_flagged: false
+  XAU:
+    is:
+      sr: 0.175
+      ret: 0.0172
+    val:
+      sr: 0.209
+      ret: 0.0061
+    test:
+      sr: 1.054
+      ret: 0.0359
+    val_flagged: false
+  COPPER:
+    is:
+      sr: 0.344
+      ret: 0.0172
+    val:
+      sr: 0.516
+      ret: 0.0144
+    test:
+      sr: -0.109
+      ret: -0.003
+    val_flagged: false
+  SpotCrude:
+    is:
+      sr: 0.064
+      ret: 0.0017
+    val:
+      sr: 0.583
+      ret: 0.0237
+    test:
+      sr: -0.366
+      ret: -0.0092
+    val_flagged: false
+  Coffee:
+    is:
+      sr: 0.296
+      ret: 0.0363
+    val:
+      sr: -0.571
+      ret: -0.0125
+    test:
+      sr: 0.226
+      ret: 0.0061
+    val_flagged: true
+  Sugar:
+    is:
+      sr: 0.056
+      ret: 0.0027
+    val:
+      sr: 0.381
+      ret: 0.0107
+    test:
+      sr: -0.813
+      ret: -0.0187
+    val_flagged: false
+  Corn:
+    is:
+      sr: 0.296
+      ret: 0.0214
+    val:
+      sr: 0.447
+      ret: 0.012
+    test:
+      sr: -0.189
+      ret: -0.0049
+    val_flagged: false
+  Cotton:
+    is:
+      sr: 0.322
+      ret: 0.0188
+    val:
+      sr: -0.012
+      ret: -0.0003
+    test:
+      sr: 0.105
+      ret: 0.0028
+    val_flagged: false
+  Soybeans:
+    is:
+      sr: 0.321
+      ret: 0.0249
+    val:
+      sr: 0.494
+      ret: 0.0138
+    test:
+      sr: -0.151
+      ret: -0.004
+    val_flagged: false
+  Wheat:
+    is:
+      sr: 0.227
+      ret: 0.0154
+    val:
+      sr: -0.658
+      ret: -0.0123
+    test:
+      sr: -0.366
+      ret: -0.0073
+    val_flagged: true
+flags:
+  val_weak:
+  - Coffee
+  - Wheat

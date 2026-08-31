@@ -1,0 +1,4 @@
+family_weights:
+  ema_crossover: 0.333333
+  donchian_breakout: 0.333333
+  time_series_momentum: 0.333333

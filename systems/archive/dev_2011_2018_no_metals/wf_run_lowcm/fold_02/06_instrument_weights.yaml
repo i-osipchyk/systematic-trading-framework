@@ -1,0 +1,11 @@
+instrument_weights:
+  # Group: currency (60% → 12% each)
+  EURUSD: 0.12
+  GBPUSD: 0.12
+  AUDUSD: 0.12
+  USDJPY: 0.12
+  USDX: 0.12
+  # Group: index (20%)
+  US500: 0.20
+  # Group: commodity (20%)
+  COPPER: 0.20

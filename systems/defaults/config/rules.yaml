@@ -1,0 +1,78 @@
+# DEFAULT rule universe — all families with all sensible variations.
+# This is the wide starting set for Step 2. Step 3b correlation analysis will
+# identify redundant candidates (threshold: cross-family corr > 0.80).
+# Known from prior builds: breakout and tsmom correlate 0.88–0.90 and 0.84–0.85
+# respectively with matched EWMAC speeds — likely to be pruned again.
+# MR at short timescales (5–20 days) is structurally different from trend;
+# at overlapping timescales it approaches –0.90 correlation (cancellation, not diversification).
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # ── Trend: EWMAC ─────────────────────────────────────────────────────────
+  # 6 speeds: fast/slow ratio always 1:4. Covers 1-week to 12-month horizons.
+  # EWMAC_2_8: high turnover (~250 roundtrips/yr), will fail cost filter on
+  # expensive instruments but kept as a candidate for the cheapest ones.
+
+  ewmac:
+    pairs:
+      - [2, 8]      # ~1 week  (very fast; high turnover)
+      - [4, 16]     # ~2-4 weeks
+      - [8, 32]     # ~4-8 weeks
+      - [16, 64]    # ~2-4 months
+      - [32, 128]   # ~4-6 months
+      - [64, 256]   # ~6-12 months
+
+  # ── Trend: Breakout ──────────────────────────────────────────────────────
+  # N-day channel breakout. Correlated with matched EWMAC (0.88–0.90 in v3);
+  # include as candidate — Step 3b will confirm redundancy.
+
+  breakout:
+    lookbacks:
+      - 20          # ~1 month
+      - 40          # ~2 months
+      - 80          # ~4 months
+      - 160         # ~8 months
+      - 320         # ~16 months
+
+  # ── Trend: TSMOM ─────────────────────────────────────────────────────────
+  # Time-series momentum (sign of past N-day return). Correlated with EWMAC
+  # (0.84–0.85 in v3); include as candidate — Step 3b will confirm redundancy.
+
+  tsmom:
+    lookbacks:
+      - 20          # ~1 month
+      - 60          # ~3 months
+      - 120         # ~6 months
+      - 250         # ~12 months
+
+  # ── Mean Reversion ───────────────────────────────────────────────────────
+  # Short-timescale MR only. At the same timescale as trend rules the
+  # correlation approaches –0.90 (cancellation). Spans chosen to be
+  # substantially shorter than the fastest EWMAC (EWMAC_4_16 ≈ 16-day slow).
+
+  mr:
+    spans:
+      - 5           # ~1 week
+      - 10          # ~2 weeks
+      - 20          # ~1 month (borderline; watch correlation with EWMAC_4_16)
+
+  # ── Carry ────────────────────────────────────────────────────────────────
+  # Swap/financing-rate-based carry for FX and index CFDs.
+  # Near-zero signal for instruments without meaningful rate differential
+  # (most commodities, physical-delivery futures); scalar calibration handles this.
+
+  carry: {}
+
+  # ── Seasonality ──────────────────────────────────────────────────────────
+  # Per-instrument monthly mean return, scaled to mean absolute = 10.
+  # Near-zero scalars for instruments with no seasonal pattern have negligible
+  # impact after FDM weighting — no need to exclude instruments upfront.
+
+  seasonality:
+    instruments: [US500, NAS100, GER40, JPN225, HK50, UK100,
+                  US2YR, US5YR, US10YR, US30YR, BUND,
+                  XAU, XAG, COPPER,
+                  SpotCrude, Gasoline, NatGas,
+                  Coffee, Cocoa, Sugar, Corn, Cotton, Soybeans, Wheat,
+                  EURUSD, GBPUSD, AUDUSD, USDJPY, USDCAD, EURGBP, USDX]

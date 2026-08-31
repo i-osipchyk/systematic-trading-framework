@@ -1,0 +1,18 @@
+# Individual instrument weights — Step 2 of 2
+# ─────────────────────────────────────────────────────────────────
+# Derived from group_weights. Edit individual weights if needed.
+# Must sum to 1.0 (tolerance ±0.005).
+#
+instrument_weights:
+  # Group: crypto (group weight: 0.25 → 0.1250 per instrument)
+  BTC: 0.125  # crypto: 0.25 / 2
+  ETH: 0.125
+  # Group: index (group weight: 0.35 → 0.1167 per instrument)
+  US500: 0.116667  # index: 0.35 / 3
+  US30: 0.116667
+  GER40: 0.116667
+  # Group: commodity (group weight: 0.25 → 0.1250 per instrument)
+  XAU: 0.125  # commodity: 0.25 / 2
+  XAG: 0.125
+  # Group: currency (group weight: 0.15 → 0.1500 per instrument)
+  USDJPY: 0.15  # currency: 0.15 / 1

@@ -1,0 +1,24 @@
+# Individual forecast weights — Step 2 of 2
+# ─────────────────────────────────────────────────────────────────
+# Derived from family_weights. Edit individual weights if needed.
+# Must sum to 1.0 (tolerance ±0.005).
+#
+forecast_weights:
+  # Family: ema_crossover (family weight: 0.25 → 0.0500 per rule)
+  EWMAC_4_16: 0.05  # ema_crossover: 0.25 / 5
+  EWMAC_8_32: 0.05
+  EWMAC_16_64: 0.05
+  EWMAC_32_128: 0.05
+  EWMAC_64_256: 0.05
+  # Family: donchian_breakout (family weight: 0.25 → 0.0625 per rule)
+  BREAKOUT_20: 0.0625  # donchian_breakout: 0.25 / 4
+  BREAKOUT_50: 0.0625
+  BREAKOUT_100: 0.0625
+  BREAKOUT_200: 0.0625
+  # Family: time_series_momentum (family weight: 0.25 → 0.0833 per rule)
+  TSMOM_63: 0.083333  # time_series_momentum: 0.25 / 3
+  TSMOM_126: 0.083333
+  TSMOM_252: 0.083333
+  # Family: mean_reversion (family weight: 0.25 → 0.1250 per rule)
+  MR_16: 0.125  # mean_reversion: 0.25 / 2
+  MR_200: 0.125

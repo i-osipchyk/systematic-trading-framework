@@ -1,0 +1,14 @@
+# Volatility target configuration
+# ─────────────────────────────────────────────────────────────────
+# Edit vol_target below and save, then press Enter in the terminal.
+#
+# Kelly analysis:
+#   IS Sharpe            : 0.16
+#   Realistic SR (×0.75) : 0.12
+#   Full Kelly           : 11.93%
+#   Half Kelly           : 5.96%
+#   Suggested            : 8.43%
+#
+# Range: 0.02 to 0.50 (e.g. 0.15 = 15%)
+#
+vol_target: 0.08

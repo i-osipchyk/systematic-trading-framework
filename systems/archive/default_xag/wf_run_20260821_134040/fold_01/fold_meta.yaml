@@ -1,0 +1,7 @@
+fold: 1
+idm: 1.8147
+is_end: '2021-01-01'
+is_sharpe: -1.0604
+is_start: '2018-01-01'
+oos_end: '2022-01-01'
+vol_target: 0.1

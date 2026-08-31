@@ -1,0 +1,6 @@
+family_weights:
+  carry: 0.200
+  ema_crossover: 0.200
+  donchian_breakout: 0.200
+  time_series_momentum: 0.200
+  mean_reversion: 0.200

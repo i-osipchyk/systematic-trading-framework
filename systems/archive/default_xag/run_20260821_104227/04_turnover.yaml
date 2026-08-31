@@ -1,0 +1,19 @@
+rules:
+  EWMAC_2_8: 56.5
+  EWMAC_4_16: 29.6
+  EWMAC_8_32: 16.41
+  EWMAC_16_64: 10.89
+  EWMAC_32_128: 8.59
+  EWMAC_64_256: 7.55
+  MR_16: 54.95
+  MR_200: 17.24
+instruments:
+  BTC: 18.11
+  ETH: 19.39
+  US500: 15.61
+  US30: 19.24
+  GER40: 19.2
+  XAU: 21.27
+  XAG: 24.97
+  USDJPY: 20.54
+weighted_avg: 19.85

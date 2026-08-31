@@ -1,0 +1,28 @@
+# Equal-weight instrument allocation — all 25 instruments
+# Used for comparison: what does the fully diversified system look like on test?
+instrument_weights:
+  EURUSD:    0.0400
+  GBPUSD:    0.0400
+  AUDUSD:    0.0400
+  USDJPY:    0.0400
+  USDCAD:    0.0400
+  US500:     0.0400
+  NAS100:    0.0400
+  GER40:     0.0400
+  JPN225:    0.0400
+  HK50:      0.0400
+  US2YR:     0.0400
+  US5YR:     0.0400
+  US10YR:    0.0400
+  US30YR:    0.0400
+  BUND:      0.0400
+  XAU:       0.0400
+  XAG:       0.0400
+  COPPER:    0.0400
+  SpotCrude: 0.0400
+  NatGas:    0.0400
+  Coffee:    0.0400
+  Cocoa:     0.0400
+  Sugar:     0.0400
+  Corn:      0.0400
+  Cotton:    0.0400

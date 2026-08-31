@@ -1,0 +1,4 @@
+family_weights:
+  ewmac:    0.333333
+  breakout: 0.333333
+  mr:       0.333333

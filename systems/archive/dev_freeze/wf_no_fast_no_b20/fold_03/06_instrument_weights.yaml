@@ -1,0 +1,9 @@
+instrument_weights:
+  EURUSD: 0.125
+  GBPUSD: 0.125
+  AUDUSD: 0.125
+  USDJPY: 0.125
+  USDX:   0.125
+  US500:  0.125
+  COPPER: 0.125
+  XAU:    0.125

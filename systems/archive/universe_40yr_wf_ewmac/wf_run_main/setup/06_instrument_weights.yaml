@@ -1,0 +1,15 @@
+instrument_weights:
+  USDX:      0.071429
+  AUDUSD:    0.071429
+  USDJPY:    0.071429
+  USDCAD:    0.071429
+  US500:     0.071429
+  NAS100:    0.071429
+  GER40:     0.071429
+  JPN225:    0.071429
+  HK50:      0.071429
+  XAU:       0.071429
+  XAG:       0.071429
+  COPPER:    0.071429
+  SpotCrude: 0.071429
+  NatGas:    0.071429

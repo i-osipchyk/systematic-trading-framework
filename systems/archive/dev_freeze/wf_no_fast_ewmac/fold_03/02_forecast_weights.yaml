@@ -1,0 +1,15 @@
+# Equal family weights (25% each), EWMAC_4_16 and EWMAC_8_32 dropped.
+# Remaining 3 EWMAC variants share the full 25% equally (~8.33% each).
+forecast_weights:
+  EWMAC_16_64:  0.083333
+  EWMAC_32_128: 0.083333
+  EWMAC_64_256: 0.083333
+  BREAKOUT_20:  0.0625
+  BREAKOUT_50:  0.0625
+  BREAKOUT_100: 0.0625
+  BREAKOUT_200: 0.0625
+  TSMOM_63:     0.083333
+  TSMOM_126:    0.083333
+  TSMOM_252:    0.083333
+  MR_16:        0.125
+  MR_200:       0.125

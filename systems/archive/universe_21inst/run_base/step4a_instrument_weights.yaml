@@ -1,0 +1,48 @@
+# Individual instrument weights — 21-instrument universe
+# ─────────────────────────────────────────────────────────────────
+# Group allocations (Carver handcrafting by effective independent units):
+#   FX (21%):          5 instruments — G4 pairs (~2 units) + JPY (1 unit) ≈ 3 units
+#   Equities (24%):    5 instruments — US pair (1 unit) + 3 intl (2.5 units) ≈ 3.5 units
+#   Bonds (14%):       3 instruments — US 10/30 pair (1 unit) + BUND (1 unit) = 2 units
+#   Commodities (41%): 8 instruments — precious (1 unit) + industrial + energy + 4 ags ≈ 6 units
+#
+instrument_weights:
+  # ── FX (sum: 21.00%) ──────────────────────────────────────────
+  # EUR/GBP block (~0.70 corr) = 1 unit → 7% shared equally
+  EURUSD:    0.0350
+  GBPUSD:    0.0350
+  # AUD/CAD block (~0.55 corr) = 1 unit → 7% shared equally
+  AUDUSD:    0.0350
+  USDCAD:    0.0350
+  # JPY: structurally independent = 1 unit → 7%
+  USDJPY:    0.0700
+
+  # ── Equities (sum: 24.00%) ────────────────────────────────────
+  # US pair: corr ~0.90 → 1 unit → 7% shared
+  US500:     0.0350
+  NAS100:    0.0350
+  # International equities: 3 independent units → 17% split
+  GER40:     0.0570
+  JPN225:    0.0570
+  HK50:      0.0560
+
+  # ── Bonds (sum: 14.00%) ───────────────────────────────────────
+  # US 10/30 pair: corr ~0.87 → 1 unit → 7% shared
+  US10YR:    0.0350
+  US30YR:    0.0350
+  # BUND: European duration, independent from US curve → 7%
+  BUND:      0.0700
+
+  # ── Commodities (sum: 41.00%) ─────────────────────────────────
+  # Precious: XAU leads (0.70 XAU/XAG corr) → 1 unit → 11%
+  XAU:       0.0700
+  XAG:       0.0400
+  # Industrial metal: independent → 6%
+  COPPER:    0.0600
+  # Energy: sole instrument → 8%
+  SpotCrude: 0.0800
+  # Agricultural softs: 4 low-corr instruments → 4% each
+  Coffee:    0.0400
+  Sugar:     0.0400
+  Corn:      0.0400
+  Cotton:    0.0400

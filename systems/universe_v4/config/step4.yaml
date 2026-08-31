@@ -1,0 +1,29 @@
+group_weights:
+  index: 0.333
+  bond: 0.333
+  commodity: 0.334
+instrument_weights:
+  US500: 0.0555
+  NAS100: 0.0555
+  GER40: 0.0555
+  JPN225: 0.0555
+  HK50: 0.0555
+  UK100: 0.0555
+  US2YR: 0.0666
+  US5YR: 0.0666
+  US10YR: 0.0666
+  US30YR: 0.0666
+  BUND: 0.0666
+  XAU: 0.027833
+  XAG: 0.027833
+  COPPER: 0.027833
+  SpotCrude: 0.027833
+  Gasoline: 0.027833
+  Coffee: 0.027833
+  Cocoa: 0.027833
+  Sugar: 0.027833
+  Corn: 0.027833
+  Cotton: 0.027833
+  Soybeans: 0.027833
+  Wheat: 0.027833
+idm: 2.5

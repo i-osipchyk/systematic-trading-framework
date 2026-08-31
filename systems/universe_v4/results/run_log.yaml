@@ -1,0 +1,120 @@
+created: '2026-08-25T17:38:59'
+results_dir: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v4/results
+timeframe: D1
+bars_per_year: 256
+instruments:
+- US500
+- NAS100
+- GER40
+- JPN225
+- HK50
+- UK100
+- US2YR
+- US5YR
+- US10YR
+- US30YR
+- BUND
+- XAU
+- XAG
+- COPPER
+- SpotCrude
+- Gasoline
+- Coffee
+- Cocoa
+- Sugar
+- Corn
+- Cotton
+- Soybeans
+- Wheat
+rules:
+  ewmac:
+    family: ewmac
+    specs:
+    - - 4
+      - 16
+    - - 8
+      - 32
+    - - 16
+      - 64
+    - - 32
+      - 128
+    - - 64
+      - 256
+  seasonality:
+    family: seasonality
+    specs: null
+steps:
+  '1':
+    name: "Step 1   \u2014 Instrument choice [USER CONFIRMS]"
+    n_traded: 23
+    instruments:
+    - US500
+    - NAS100
+    - GER40
+    - JPN225
+    - HK50
+    - UK100
+    - US2YR
+    - US5YR
+    - US10YR
+    - US30YR
+    - BUND
+    - XAU
+    - XAG
+    - COPPER
+    - SpotCrude
+    - Gasoline
+    - Coffee
+    - Cocoa
+    - Sugar
+    - Corn
+    - Cotton
+    - Soybeans
+    - Wheat
+  '2':
+    name: "Step 2   \u2014 Rule selection [USER CONFIRMS]"
+    n_families: 2
+    n_variants: 6
+  '3':
+    name: "Step 3   \u2014 Rule correlations, trading speed, forecast weights [USER\
+      \ EDITS]"
+    state: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v4/config/step3.yaml
+    report: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v4/results/step3_report.md
+  '4':
+    name: "Step 4   \u2014 Instrument weights and IDM [USER INPUT]"
+    group_weights:
+      index: 0.333
+      bond: 0.333
+      commodity: 0.333996
+    instrument_weights:
+      US500: 0.0555
+      NAS100: 0.0555
+      GER40: 0.0555
+      JPN225: 0.0555
+      HK50: 0.0555
+      UK100: 0.0555
+      US2YR: 0.0666
+      US5YR: 0.0666
+      US10YR: 0.0666
+      US30YR: 0.0666
+      BUND: 0.0666
+      XAU: 0.027833
+      XAG: 0.027833
+      COPPER: 0.027833
+      SpotCrude: 0.027833
+      Gasoline: 0.027833
+      Coffee: 0.027833
+      Cocoa: 0.027833
+      Sugar: 0.027833
+      Corn: 0.027833
+      Cotton: 0.027833
+      Soybeans: 0.027833
+      Wheat: 0.027833
+  '5':
+    name: "Step 5   \u2014 IS backtest and volatility target [USER CONFIRMS]"
+    is_sharpe: 1.2527
+    realistic_sr: 0.9395
+    full_kelly: 0.9395
+    half_kelly: 0.4698
+    geo_mean: 0.6643
+    vol_target: 0.4

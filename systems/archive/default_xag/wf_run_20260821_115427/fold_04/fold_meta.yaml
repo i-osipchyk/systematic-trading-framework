@@ -1,0 +1,7 @@
+fold: 4
+idm: 1.8715
+is_end: '2024-01-02'
+is_sharpe: 0.202
+is_start: '2018-01-01'
+oos_end: '2025-01-01'
+vol_target: 0.1072

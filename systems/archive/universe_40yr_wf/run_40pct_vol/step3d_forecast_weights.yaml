@@ -1,0 +1,18 @@
+# Forecast combination weights
+# ─────────────────────────────────────────────────────────────────
+# Derived via Carver handcrafting from IS rule forecast correlations.
+# Revised after validation analysis (2010–2017):
+#   - BREAKOUT_20 removed: IS 1.39 → Val -0.54; highest turnover (46 RT/yr)
+#   - Fast sub-family collapsed: EWMAC_8_32 now sole fast trend rule
+#
+# Family structure:
+#   Trend (50%): EWMAC_8_32 + EWMAC_32_128 + EWMAC_64_256 (equal thirds)
+#   Carry (25%): FX (1) + bond (4) instruments
+#   Seasonality (25%): energy (1) + ag (4) instruments
+#
+forecast_weights:
+  EWMAC_8_32:    0.1667
+  EWMAC_32_128:  0.1667
+  EWMAC_64_256:  0.1666
+  CARRY:         0.2500
+  SEASONALITY:   0.2500

@@ -1,0 +1,5 @@
+timeframe: D1
+bars_per_year: 256
+capital: 100000
+start_date: "2001-01-01"   # pre-2001 commodity data is monthly FRED forward-filled, not daily
+test_size: 0.3

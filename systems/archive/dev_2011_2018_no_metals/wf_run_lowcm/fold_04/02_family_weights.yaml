@@ -1,0 +1,6 @@
+# Family-level forecast weights — same as no-metals run
+family_weights:
+  ema_crossover: 0.250
+  donchian_breakout: 0.250
+  time_series_momentum: 0.250
+  mean_reversion: 0.250

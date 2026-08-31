@@ -1,0 +1,13 @@
+instrument_weights:
+  # Group: currency (5/9 ≈ 55.6%, each 1/9 ≈ 11.1%)
+  EURUSD: 0.1111
+  GBPUSD: 0.1111
+  AUDUSD: 0.1111
+  USDJPY: 0.1111
+  USDX: 0.1111
+  # Group: index (2/9 ≈ 22.2%, each 1/9)
+  US500: 0.1111
+  GER40: 0.1111
+  # Group: commodity (2/9 ≈ 22.2%, each 1/9)
+  COPPER: 0.1111
+  SpotCrude: 0.1111

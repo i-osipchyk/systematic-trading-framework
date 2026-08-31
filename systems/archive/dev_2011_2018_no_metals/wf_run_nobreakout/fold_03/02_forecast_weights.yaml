@@ -1,0 +1,12 @@
+# No breakout — EWMAC 33%, TSMOM 33%, MR 33%
+forecast_weights:
+  EWMAC_4_16:   0.06667
+  EWMAC_8_32:   0.06667
+  EWMAC_16_64:  0.06667
+  EWMAC_32_128: 0.06667
+  EWMAC_64_256: 0.06667
+  TSMOM_63:     0.11111
+  TSMOM_126:    0.11111
+  TSMOM_252:    0.11111
+  MR_16:        0.16667
+  MR_200:       0.16667

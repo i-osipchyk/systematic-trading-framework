@@ -1,0 +1,5 @@
+# Equal per-instrument weights → 5/9 FX, 2/9 index, 2/9 commodity
+group_weights:
+  currency: 0.5556
+  index: 0.2222
+  commodity: 0.2222

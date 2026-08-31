@@ -1,0 +1,6 @@
+# Reduced commodity: 20% (down from 33.4%)
+# Redistributed to currency (60%) and index (20%)
+group_weights:
+  currency: 0.60
+  index: 0.20
+  commodity: 0.20

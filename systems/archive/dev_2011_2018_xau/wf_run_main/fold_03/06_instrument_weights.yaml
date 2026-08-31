@@ -1,0 +1,11 @@
+instrument_weights:
+  # Full weight (1/7.5 ≈ 13.33%)
+  EURUSD: 0.1333
+  GBPUSD: 0.1333
+  AUDUSD: 0.1333
+  USDJPY: 0.1333
+  USDX: 0.1333
+  US500: 0.1333
+  COPPER: 0.1333
+  # Half weight
+  XAU: 0.0667

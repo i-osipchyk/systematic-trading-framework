@@ -1,0 +1,22 @@
+rules:
+  # ── Trend: EWMAC 5 speeds ─────────────────────────────────────────────────
+  # Breakout (corr 0.88-0.90 with matched EWMAC) and TSMOM (0.84-0.85) dropped
+  # as structurally redundant (above 0.80 threshold).
+  # EWMAC_2_8 excluded: corr 0.87 with EWMAC_4_16; cost ceiling 0.0027 (too tight).
+
+  ewmac:
+    pairs:
+      - [4, 16]     # ~2-4 weeks
+      - [8, 32]     # ~4-8 weeks
+      - [16, 64]    # ~2-4 months
+      - [32, 128]   # ~4-6 months
+      - [64, 256]   # ~6-12 months
+
+  # ── Seasonality ──────────────────────────────────────────────────────────
+  # Applied to all 16 instruments.
+  seasonality:
+    instruments: [US500, GER40, JPN225, HK50,
+                  US10YR, BUND,
+                  XAU, COPPER,
+                  SpotCrude, Gasoline,
+                  Coffee, Sugar, Corn, Cotton, Soybeans, Wheat]

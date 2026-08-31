@@ -1,0 +1,5 @@
+family_weights:
+  ewmac:    0.25
+  breakout: 0.25
+  tsmom:    0.25
+  mr:       0.25

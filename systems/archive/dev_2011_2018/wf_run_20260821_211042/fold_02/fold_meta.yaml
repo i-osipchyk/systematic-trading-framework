@@ -1,0 +1,8 @@
+fold: 2
+gross_is_sr: 0.4154
+idm: 1.9388
+is_end: '2015-01-01'
+is_sharpe: 0.3362
+is_start: '2011-01-01'
+oos_end: '2016-01-02'
+vol_target: 0.1783

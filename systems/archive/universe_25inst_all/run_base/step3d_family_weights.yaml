@@ -1,0 +1,14 @@
+# Family-level forecast weights — Step 1 of 2
+# ─────────────────────────────────────────────────────────────────
+# Set the weight for each rule family. Must sum to 1.0.
+# Individual rule weights (step 2) will be derived proportionally.
+#
+# Families and their rules:
+#   ema_crossover (3 rules): EWMAC_8_32, EWMAC_32_128, EWMAC_64_256
+#   carry         (1 rule):  CARRY
+#   seasonality   (1 rule):  SEASONALITY
+#
+family_weights:
+  ema_crossover: 0.500   # edit this
+  carry: 0.250           # edit this
+  seasonality: 0.250     # edit this

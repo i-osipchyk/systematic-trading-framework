@@ -1,0 +1,6 @@
+# Group weights — same proportions as previous run
+# currency 53.3%, index 13.3%, commodity 33.4%
+group_weights:
+  currency: 0.533
+  index: 0.133
+  commodity: 0.334

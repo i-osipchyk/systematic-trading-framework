@@ -1,0 +1,14 @@
+# Group-level instrument weights — Step 1 of 2
+# ─────────────────────────────────────────────────────────────────
+# Set the weight for each asset group. Must sum to 1.0.
+# Individual instrument weights (step 2) will be split equally within each group.
+#
+# Groups and their instruments:
+#   currency (5): EURUSD, GBPUSD, AUDUSD, USDJPY, USDX
+#   index (1): US500
+#   commodity (3): XAU, XAG, COPPER
+#
+group_weights:
+  currency: 0.333     # 5 instruments
+  index: 0.333     # 1 instrument
+  commodity: 0.334     # 3 instruments

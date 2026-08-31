@@ -1,0 +1,72 @@
+created: '2026-08-21T10:44:30'
+run_dir: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/default_xag/run_20260821_104430
+timeframe: D1
+bars_per_year: 256
+instruments:
+- BTC
+- ETH
+- US500
+- US30
+- GER40
+- XAU
+- XAG
+- USDJPY
+rules:
+  ewmac:
+    family: ema_crossover
+    specs:
+    - - 2
+      - 8
+    - - 4
+      - 16
+    - - 8
+      - 32
+    - - 16
+      - 64
+    - - 32
+      - 128
+    - - 64
+      - 256
+  mr:
+    family: mean_reversion
+    specs:
+    - 16
+    - 200
+steps:
+  2:
+    name: Set forecast weights
+    family_weights:
+      ema_crossover: 1.000002
+      mean_reversion: 0.0
+    forecast_weights:
+      EWMAC_2_8: 0.166667
+      EWMAC_4_16: 0.166667
+      EWMAC_8_32: 0.166667
+      EWMAC_16_64: 0.166667
+      EWMAC_32_128: 0.166667
+      EWMAC_64_256: 0.166667
+      MR_16: 0.0
+      MR_200: 0.0
+  5:
+    name: Kelly analysis & vol target
+    is_sharpe: 0.159
+    realistic_sharpe: 0.1193
+    full_kelly: 0.1193
+    half_kelly: 0.0596
+    vol_target: 0.08
+  6:
+    name: Set instrument weights
+    group_weights:
+      crypto: 0.25
+      index: 0.399999
+      commodity: 0.25
+      currency: 0.1
+    instrument_weights:
+      BTC: 0.125
+      ETH: 0.125
+      US500: 0.133333
+      US30: 0.133333
+      GER40: 0.133333
+      XAU: 0.125
+      XAG: 0.125
+      USDJPY: 0.1

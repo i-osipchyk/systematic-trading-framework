@@ -1,0 +1,98 @@
+created: '2026-08-29T17:58:55'
+results_dir: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v8/results
+timeframe: D1
+bars_per_year: 256
+instruments:
+- XAU
+- XAG
+- COPPER
+- SpotCrude
+- Coffee
+- Cocoa
+- Sugar
+- Corn
+- Cotton
+- Soybeans
+- Wheat
+rules:
+  ewmac:
+    family: ewmac
+    specs:
+    - - 4
+      - 16
+    - - 8
+      - 32
+    - - 16
+      - 64
+    - - 32
+      - 128
+    - - 64
+      - 256
+  breakout:
+    family: breakout
+    specs: null
+  seasonality:
+    family: seasonality
+    specs: null
+steps:
+  '1':
+    name: "Step 1   \u2014 Instrument choice [USER CONFIRMS]"
+    n_traded: 11
+    instruments:
+    - XAU
+    - XAG
+    - COPPER
+    - SpotCrude
+    - Coffee
+    - Cocoa
+    - Sugar
+    - Corn
+    - Cotton
+    - Soybeans
+    - Wheat
+  '2':
+    name: "Step 2   \u2014 Rule selection [USER CONFIRMS]"
+    n_families: 3
+    n_variants: 7
+  '3':
+    name: "Step 3   \u2014 Rule correlations, trading speed, forecast weights [USER\
+      \ EDITS]"
+    state: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v8/config/step3.yaml
+    report: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v8/results/step3_report.md
+  '4':
+    name: "Step 4   \u2014 Instrument weights and IDM [USER INPUT]"
+    group_weights:
+      commodity: 0.999999
+    instrument_weights:
+      XAU: 0.090909
+      XAG: 0.090909
+      COPPER: 0.090909
+      SpotCrude: 0.090909
+      Coffee: 0.090909
+      Cocoa: 0.090909
+      Sugar: 0.090909
+      Corn: 0.090909
+      Cotton: 0.090909
+      Soybeans: 0.090909
+      Wheat: 0.090909
+  '5':
+    name: "Step 5   \u2014 IS backtest and volatility target [USER CONFIRMS]"
+    is_sharpe: 0.3896
+    realistic_sr: 0.2922
+    full_kelly: 0.2922
+    half_kelly: 0.1461
+    geo_mean: 0.2066
+    vol_target: 0.21
+  oos:
+    name: "OOS      \u2014 IS vs Val vs Test SR breakdown \u2192 step6.yaml"
+    is_sr: 0.39
+    val_sr: 0.728
+    test_sr: 0.324
+    is_ret: 0.1332
+    val_ret: 0.1803
+    test_ret: 0.0757
+    is_max_dd: -0.715
+    val_max_dd: -0.2899
+    test_max_dd: -0.2924
+    val_weak_flags:
+    - Cocoa

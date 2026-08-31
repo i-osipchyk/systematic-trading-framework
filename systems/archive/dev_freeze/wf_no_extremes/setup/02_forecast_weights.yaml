@@ -1,0 +1,13 @@
+# 4 families at 25% each. Dropped: EWMAC_4_16, EWMAC_8_32 (fast),
+# EWMAC_64_256 (slowest EWMAC), BREAKOUT_200 (slowest breakout),
+# TSMOM_252 (slowest TSMOM). MR unchanged.
+forecast_weights:
+  EWMAC_16_64:  0.125
+  EWMAC_32_128: 0.125
+  BREAKOUT_20:  0.083333
+  BREAKOUT_50:  0.083333
+  BREAKOUT_100: 0.083333
+  TSMOM_63:     0.125
+  TSMOM_126:    0.125
+  MR_16:        0.125
+  MR_200:       0.125

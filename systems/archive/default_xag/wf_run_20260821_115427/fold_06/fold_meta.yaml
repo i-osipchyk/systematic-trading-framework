@@ -1,0 +1,7 @@
+fold: 6
+idm: 1.8362
+is_end: '2026-01-01'
+is_sharpe: 0.4084
+is_start: '2018-01-01'
+oos_end: '2026-08-18'
+vol_target: 0.2166

@@ -1,0 +1,16 @@
+# Family-level forecast weights — Step 1 of 2
+# ─────────────────────────────────────────────────────────────────
+# Set the weight for each rule family. Must sum to 1.0.
+# Individual rule weights (step 2) will be derived proportionally.
+#
+# Families and their rules:
+#   ema_crossover (5 rules): EWMAC_4_16, EWMAC_8_32, EWMAC_16_64, EWMAC_32_128, EWMAC_64_256
+#   donchian_breakout (4 rules): BREAKOUT_20, BREAKOUT_50, BREAKOUT_100, BREAKOUT_200
+#   time_series_momentum (3 rules): TSMOM_63, TSMOM_126, TSMOM_252
+#   mean_reversion (2 rules): MR_16, MR_200
+#
+family_weights:
+  ema_crossover: 0.250   # edit this
+  donchian_breakout: 0.250   # edit this
+  time_series_momentum: 0.250   # edit this
+  mean_reversion: 0.250   # edit this

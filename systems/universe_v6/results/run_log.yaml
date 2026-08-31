@@ -1,0 +1,113 @@
+created: '2026-08-28T12:52:54'
+results_dir: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v6/results
+timeframe: D1
+bars_per_year: 256
+instruments:
+- US500
+- GER40
+- JPN225
+- HK50
+- US10YR
+- BUND
+- XAU
+- COPPER
+- SpotCrude
+- Gasoline
+- Coffee
+- Sugar
+- Corn
+- Cotton
+- Soybeans
+- Wheat
+rules:
+  ewmac:
+    family: ewmac
+    specs:
+    - - 4
+      - 16
+    - - 8
+      - 32
+    - - 16
+      - 64
+    - - 32
+      - 128
+    - - 64
+      - 256
+  seasonality:
+    family: seasonality
+    specs: null
+steps:
+  '1':
+    name: "Step 1   \u2014 Instrument choice [USER CONFIRMS]"
+    n_traded: 16
+    instruments:
+    - US500
+    - GER40
+    - JPN225
+    - HK50
+    - US10YR
+    - BUND
+    - XAU
+    - COPPER
+    - SpotCrude
+    - Gasoline
+    - Coffee
+    - Sugar
+    - Corn
+    - Cotton
+    - Soybeans
+    - Wheat
+  '2':
+    name: "Step 2   \u2014 Rule selection [USER CONFIRMS]"
+    n_families: 2
+    n_variants: 6
+  '3':
+    name: "Step 3   \u2014 Rule correlations, trading speed, forecast weights [USER\
+      \ EDITS]"
+    state: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v6/config/step3.yaml
+    report: /Users/ivan.osipchyk/dev/systematic-trading-framework/systems/universe_v6/results/step3_report.md
+  '4':
+    name: "Step 4   \u2014 Instrument weights and IDM [USER INPUT]"
+    group_weights:
+      index: 0.35
+      bond: 0.2
+      commodity: 0.45
+    instrument_weights:
+      US500: 0.0875
+      GER40: 0.0875
+      JPN225: 0.0875
+      HK50: 0.0875
+      US10YR: 0.1
+      BUND: 0.1
+      XAU: 0.045
+      COPPER: 0.045
+      SpotCrude: 0.045
+      Gasoline: 0.045
+      Coffee: 0.045
+      Sugar: 0.045
+      Corn: 0.045
+      Cotton: 0.045
+      Soybeans: 0.045
+      Wheat: 0.045
+  '5':
+    name: "Step 5   \u2014 IS backtest and volatility target [USER CONFIRMS]"
+    is_sharpe: 0.8218
+    realistic_sr: 0.6164
+    full_kelly: 0.6164
+    half_kelly: 0.3082
+    geo_mean: 0.4358
+    vol_target: 0.2
+  oos:
+    name: "OOS      \u2014 IS vs Val vs Test SR breakdown \u2192 step6.yaml"
+    is_sr: 0.822
+    val_sr: 0.991
+    test_sr: 0.4
+    is_ret: 0.2054
+    val_ret: 0.2224
+    test_ret: 0.07
+    is_max_dd: -0.484
+    val_max_dd: -0.3394
+    test_max_dd: -0.1805
+    val_weak_flags:
+    - GER40
+    - JPN225

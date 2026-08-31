@@ -1,0 +1,47 @@
+# Individual instrument weights — 18-instrument universe
+# ─────────────────────────────────────────────────────────────────
+# Revised after validation analysis:
+#   Removed: EURUSD, GBPUSD, AUDUSD, USDCAD (FX group val SR -0.32)
+#            US2YR (val SR -1.43, ZIRP rate pin)
+#            NatGas (val SR -0.58, shale regime shift)
+#            Cocoa  (val SR -0.84, never had trend edge)
+#
+# Group allocations:
+#   FX (8%):          1 instrument  — USDJPY sole unit
+#   Equities (28%):   5 instruments — US pair (corr ~0.90) + 3 intl
+#   Bonds (22%):      4 instruments — US curve (corr ~0.90) + BUND
+#   Commodities (42%): 8 instruments — precious / industrial / energy / ags
+#
+instrument_weights:
+  # ── FX (sum: 8.00%) ───────────────────────────────────────────
+  USDJPY:    0.0800   # sole FX instrument; BoJ policy-driven trends
+
+  # ── Equities (sum: 28.00%) ────────────────────────────────────
+  # US equities: US500 + NAS100 as one unit (corr ~0.90) → 8% shared
+  US500:     0.0400
+  NAS100:    0.0400
+  GER40:     0.0667   # independent European unit
+  JPN225:    0.0667   # independent Asian unit
+  HK50:      0.0666   # independent Asia/China unit
+
+  # ── Bonds (sum: 22.00%) ───────────────────────────────────────
+  # US curve: 3 maturities, highly correlated → 10% shared equally
+  US5YR:     0.0333
+  US10YR:    0.0333
+  US30YR:    0.0334
+  # BUND: sole European bond, independent from US curve
+  BUND:      0.1200
+
+  # ── Commodities (sum: 42.00%) ─────────────────────────────────
+  # Precious metals sub-group (12%): XAU leads, XAG correlated (0.70)
+  XAU:       0.0800
+  XAG:       0.0400
+  # Industrial metal sub-group (6%)
+  COPPER:    0.0600
+  # Energy sub-group (8%): SpotCrude sole energy instrument
+  SpotCrude: 0.0800
+  # Agricultural softs sub-group (16%): 4 uncorrelated instruments
+  Coffee:    0.0400
+  Sugar:     0.0400
+  Corn:      0.0400
+  Cotton:    0.0400

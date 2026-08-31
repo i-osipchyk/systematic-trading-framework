@@ -1,0 +1,8 @@
+fold: 6
+gross_is_sr: 0.9901
+idm: 2.5
+is_end: '1994-01-02'
+is_sharpe: 0.5681
+is_start: '1984-01-02'
+oos_end: '1995-01-02'
+vol_target: 0.3013

@@ -1,0 +1,25 @@
+rules:
+  # ── Trend: EWMAC 5 speeds ─────────────────────────────────────────────────
+  # Breakout excluded: correlation with EWMAC_4_16 = 0.884, above 0.80 structural
+  # redundancy threshold. No independent signal over EWMAC.
+  # EWMAC_2_8 excluded: cost ceiling ~0.0027 fails on most instruments.
+  # EWMAC_4_16 retained: correlation with EWMAC_8_32 = 0.858 (below 0.90 threshold).
+
+  ewmac:
+    pairs:
+      - [4, 16]     # ~2-4 weeks
+      - [8, 32]     # ~4-8 weeks
+      - [16, 64]    # ~2-4 months
+      - [32, 128]   # ~4-6 months
+      - [64, 256]   # ~6-12 months
+
+  # ── Seasonality ──────────────────────────────────────────────────────────
+  # Applied to all 17 instruments.
+  # Weight capped at 15% in Step 3 given OOS overfitting pattern across v3–v8.
+
+  seasonality:
+    instruments: [US500, GER40, JPN225, HK50,
+                  US10YR, BUND,
+                  XAU, XAG, COPPER,
+                  SpotCrude, Gasoline,
+                  Coffee, Sugar, Corn, Cotton, Soybeans, Wheat]

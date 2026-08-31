@@ -1,0 +1,16 @@
+# Group-level instrument weights — Step 1 of 2
+# ─────────────────────────────────────────────────────────────────
+# Set the weight for each asset group. Must sum to 1.0.
+# Individual instrument weights (step 2) will be split equally within each group.
+#
+# Groups and their instruments:
+#   crypto (2): BTC, ETH
+#   index (3): US500, US30, GER40
+#   commodity (2): XAU, XAG
+#   currency (1): USDJPY
+#
+group_weights:
+  crypto: 0.250     # 2 instruments
+  index: 0.40     # 3 instruments
+  commodity: 0.250     # 2 instruments
+  currency: 0.10     # 1 instrument

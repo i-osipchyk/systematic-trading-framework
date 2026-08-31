@@ -1,0 +1,22 @@
+# 5 equal families at 20% each
+# carry: 1 rule → 20%
+# ewmac: 5 rules → 4% each
+# breakout: 4 rules → 5% each
+# tsmom: 3 rules → 6.667% each
+# mr: 2 rules → 10% each
+forecast_weights:
+  CARRY:        0.20
+  EWMAC_4_16:   0.04
+  EWMAC_8_32:   0.04
+  EWMAC_16_64:  0.04
+  EWMAC_32_128: 0.04
+  EWMAC_64_256: 0.04
+  BREAKOUT_20:  0.05
+  BREAKOUT_50:  0.05
+  BREAKOUT_100: 0.05
+  BREAKOUT_200: 0.05
+  TSMOM_63:     0.06667
+  TSMOM_126:    0.06667
+  TSMOM_252:    0.06667
+  MR_16:        0.10
+  MR_200:       0.10

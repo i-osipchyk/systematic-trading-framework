@@ -1,0 +1,8 @@
+fold: 2
+gross_is_sr: 0.3402
+idm: 1.9412
+is_end: '2022-01-01'
+is_sharpe: 0.1563
+is_start: '2018-01-01'
+oos_end: '2023-01-02'
+vol_target: 0.0829

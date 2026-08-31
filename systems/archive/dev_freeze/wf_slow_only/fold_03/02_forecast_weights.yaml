@@ -1,0 +1,12 @@
+# 3 families at equal weight (1/3 each).
+# Dropped: EWMAC_4_16, EWMAC_8_32, BREAKOUT_100, BREAKOUT_200, all TSMOM.
+# Kept: 3 slow EWMACs, BREAKOUT_20+50 (genuinely decorrelated from slow EWMACs),
+#        MR_16+200.
+forecast_weights:
+  EWMAC_16_64:  0.111111
+  EWMAC_32_128: 0.111111
+  EWMAC_64_256: 0.111111
+  BREAKOUT_20:  0.166667
+  BREAKOUT_50:  0.166667
+  MR_16:        0.166667
+  MR_200:       0.166667

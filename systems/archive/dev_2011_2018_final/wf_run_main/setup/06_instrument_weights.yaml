@@ -1,0 +1,12 @@
+instrument_weights:
+  # Group: currency (50%, each 12.5%)
+  EURUSD: 0.125
+  AUDUSD: 0.125
+  USDJPY: 0.125
+  USDX: 0.125
+  # Group: index (12.5%)
+  US500: 0.125
+  # Group: commodity (37.5%, each 12.5%)
+  XAU: 0.125
+  XAG: 0.125
+  COPPER: 0.125

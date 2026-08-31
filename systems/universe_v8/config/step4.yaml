@@ -1,0 +1,15 @@
+group_weights:
+  commodity: 1.0
+instrument_weights:
+  XAU: 0.090909
+  XAG: 0.090909
+  COPPER: 0.090909
+  SpotCrude: 0.090909
+  Coffee: 0.090909
+  Cocoa: 0.090909
+  Sugar: 0.090909
+  Corn: 0.090909
+  Cotton: 0.090909
+  Soybeans: 0.090909
+  Wheat: 0.090909
+idm: 2.5
