@@ -25,7 +25,7 @@ from src.calibration import state as st
 FILENAME = "step2.yaml"
 
 
-def main(state_dir=None, report_dir=None) -> dict:
+def main(state_dir=None, report_dir=None, auto_confirm: bool = False) -> dict:
     if st.exists(FILENAME, state_dir=state_dir):
         print(f"  Step 2 already confirmed ({st.path(FILENAME, state_dir=state_dir)})")
         return {}
@@ -37,11 +37,14 @@ def main(state_dir=None, report_dir=None) -> dict:
     print(f"  RULE FAMILIES  ({len(rules)} families)")
     print(f"  {SEP}")
     total_variants = 0
+    family_variants: dict[str, list[str]] = {}
     for family, cfg in rules.items():
-        pairs = cfg.get("pairs") or cfg.get("spans")
+        pairs = cfg.get("pairs") or cfg.get("lookbacks") or cfg.get("spans")
         if pairs:
             variants = len(pairs)
             total_variants += variants
+            labels = [f"{p[0]}_{p[1]}" if isinstance(p, list) else str(p) for p in pairs]
+            family_variants[family] = labels
             label = f"{variants} variant{'s' if variants != 1 else ''}"
             print(f"\n  {family.upper()}  ({label})")
             for p in pairs:
@@ -51,6 +54,7 @@ def main(state_dir=None, report_dir=None) -> dict:
                     print(f"    {p}")
         else:
             total_variants += 1
+            family_variants[family] = []
             instruments = cfg.get("instruments", [])
             print(f"\n  {family.upper()}")
             if instruments:
@@ -58,13 +62,16 @@ def main(state_dir=None, report_dir=None) -> dict:
     print(f"\n  Total rule variants: {total_variants}")
     print(f"\n  {SEP}")
     print(f"  Edit {st.path(FILENAME, state_dir=state_dir).parent / 'rules.yaml'}")
-    print(f"  then press Enter to confirm the rule selection is finalised...")
 
-    try:
-        input()
-    except (KeyboardInterrupt, EOFError):
-        print("\n  Aborted.")
-        sys.exit(1)
+    if auto_confirm:
+        print(f"  auto_confirm=True — finalising the rule selection above without a prompt.")
+    else:
+        print(f"  then press Enter to confirm the rule selection is finalised...")
+        try:
+            input()
+        except (KeyboardInterrupt, EOFError):
+            print("\n  Aborted.")
+            sys.exit(1)
 
     st.save(FILENAME, {"confirmed": datetime.now().isoformat(timespec="seconds"),
                        "n_families": len(rules),
@@ -72,7 +79,12 @@ def main(state_dir=None, report_dir=None) -> dict:
                        "families": list(rules.keys())},
             state_dir=state_dir)
     print(f"  Confirmed → {st.path(FILENAME, state_dir=state_dir)}")
-    return {"n_families": len(rules), "n_variants": total_variants}
+    return {
+        "n_families": len(rules),
+        "n_variants": total_variants,
+        "families": list(rules.keys()),
+        "family_variants": family_variants,
+    }
 
 
 if __name__ == "__main__":

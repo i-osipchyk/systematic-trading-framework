@@ -74,7 +74,7 @@ def _run_fetch(codes: list[str], from_dt: date, to_dt: date, demo: bool, period:
         print(f"\n  WARNING: fetch exited with code {result.returncode} — check output above.")
 
 
-def main(state_dir=None, demo: bool = False, report_dir=None) -> None:
+def main(state_dir=None, demo: bool = False, report_dir=None) -> dict:
     cfgs = load_instrument_configs()
     # Fetch everything declared in the config (traded or not) so FX helpers
     # that are explicitly listed are always available to the backtest engine.
@@ -118,9 +118,11 @@ def main(state_dir=None, demo: bool = False, report_dir=None) -> None:
     for code in missing:
         print(f"  {code:<10} {'MISSING':<20} {'—':>12} {'—':>12}")
 
+    summary = {"up_to_date": len(up_to_date), "needs_update": len(needs_update), "missing": len(missing)}
+
     if not missing and not needs_update:
         print(f"\n  All data is current.")
-        return
+        return summary
 
     if missing:
         print(f"\n  Missing instruments → fetching from {global_start} (earliest found date)")
@@ -136,6 +138,7 @@ def main(state_dir=None, demo: bool = False, report_dir=None) -> None:
             _run_fetch(codes, last_date, today, demo, period)
 
     print(f"\n  Data fetch complete.")
+    return summary
 
 
 if __name__ == "__main__":

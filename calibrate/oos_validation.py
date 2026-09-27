@@ -1,15 +1,16 @@
 """
-OOS validation: IS vs Val (2010–2017) SR breakdown by instrument, asset class, and rule.
+OOS validation: IS vs Test SR breakdown by instrument, asset class, and rule.
 
 Loads all calibrated parameters from the given run directory, then runs IS and
-Val periods for each instrument and rule in isolation.
+Test (the full OOS window, one-shot) periods for each instrument and rule in
+isolation.
 
 INPUT STATE FILES (from system config/ directory):
   - step3.yaml  (sections: scalars, forecast_weights, fdm)
   - step4.yaml  (sections: instrument_weights, idm)
 
 OUTPUT: printed tables + results/step6.md (portfolio, asset class, rule, family,
-  and per-instrument IS/Val/Test SR; val_weak flags for instruments with Val SR < -0.30).
+  and per-instrument IS/Test SR; test_weak flags for instruments with Test SR < -0.30).
 
 Flags:
   --system PATH       system directory (default: systems/universe_v4)
@@ -52,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.backtest.config import load_capital, load_instrument_configs, set_config, traded_instruments, required_fx_helpers
 from src.backtest.engine import _fx_rate_to_usd
-from src.backtest.metrics import performance_report, TRADING_DAYS_PER_YEAR
+from src.backtest.metrics import equity_curve, performance_report, TRADING_DAYS_PER_YEAR
 from src.backtest.pnl import gross_pnl, transaction_costs, to_usd
 from src.backtest.sizing import apply_inertia, compute_positions, round_to_lot
 from src.calibration import state as st
@@ -62,7 +63,7 @@ from src.rules.combine import combined_forecast
 from src.rules.registry import REGISTRY
 from src.rules.vol import daily_vol
 
-_VOL_PLACEHOLDER = 0.20  # must match step5_calibrate._VOL_PLACEHOLDER so IS SR is comparable
+_VOL_PLACEHOLDER = 0.20  # default when no vol_target is passed in (matches step5_calibrate's placeholder)
 _ctx = {"capital": 100_000.0}  # mutable; main() sets the real value from config before computing
 
 GROUPS: dict[str, list[str]] = {
@@ -100,15 +101,24 @@ def _mdd(pnl: pd.Series) -> float:
     return float(dd.min())
 
 
-def main(state_dir=None, include_all: bool = False, vol_target: float | None = None, report_dir=None) -> dict:
-    # All metrics use _VOL_PLACEHOLDER (same as step5) so IS SR is directly comparable.
-    # The confirmed vol_target from step5.yaml is read for the footer display only.
+def _compute(vol_target: float | None, state_dir=None, include_all: bool = False) -> dict:
+    """Run the isolated per-instrument / per-rule OOS backtests at `vol_target`
+    (falls back to the 0.20 first-look placeholder) and return the raw pnl series
+    every table and the equity curve are built from. Pure computation, no printing
+    — shared by the CLI report (main()) and the web UI preview (run_oos_backtest()).
+
+    Position sizing is nonlinear (lot rounding, inertia — src/backtest/sizing.py),
+    so SR shifts slightly with vol_target, same as Step 5. Use the vol_target
+    Step 5 confirmed to keep IS SR comparable across scripts, or try others
+    interactively; the confirmed value is also read here for display only.
+    """
     vol_target_display: float | None = None
     try:
         vol_target_display = float(st.load_section("step5.yaml", "vol_target", state_dir=state_dir))
     except Exception:
         pass
-    vol_target = _VOL_PLACEHOLDER  # position sizing; ignore any passed-in override
+    if vol_target is None:
+        vol_target = _VOL_PLACEHOLDER
 
     capital = load_capital()
     _ctx["capital"] = capital
@@ -135,17 +145,6 @@ def main(state_dir=None, include_all: bool = False, vol_target: float | None = N
         codes = list(cfgs.keys())
     else:
         codes = traded_instruments(cfgs)
-
-    # Val/test boundary: midpoint of the OOS window, computed from price data.
-    # Avoids empty val periods when IS ends near or after a hard-coded date.
-    _data_ends = []
-    for _code in codes:
-        try:
-            _data_ends.append(load_adjusted_prices(_code).index.max())
-        except FileNotFoundError:
-            pass
-    data_end = pd.Timestamp(max(_data_ends)) if _data_ends else is_end + pd.DateOffset(years=4)
-    val_end = is_end + (data_end - is_end) / 2
 
     fx_helpers = required_fx_helpers(cfgs)
     all_fx_keys = set(fx_helpers) | {"EURUSD", "EURGBP", "USDJPY", "USDCAD"}
@@ -231,109 +230,74 @@ def main(state_dir=None, include_all: bool = False, vol_target: float | None = N
                 rule_pnl[rule_name][code] = to_usd(gpnl_r, cfg.currency,
                                                    eurusd, eurgbp, usdjpy, usdcad)
 
-    def _split3(pnl: pd.Series):
-        is_p   = pnl[pnl.index < is_end]
-        val_p  = pnl[(pnl.index >= is_end) & (pnl.index < val_end)]
-        test_p = pnl[pnl.index >= val_end]
-        return is_p, val_p, test_p
+    return {
+        "vol_target": vol_target,
+        "vol_target_display": vol_target_display,
+        "capital": capital,
+        "is_end": is_end,
+        "cfgs": cfgs,
+        "include_all": include_all,
+        "combined_pnl": combined_pnl,
+        "rule_pnl": rule_pnl,
+        "all_rules": all_rules,
+    }
 
-    tee = _Tee(sys.stdout)
-    sys.stdout = tee
 
-    if include_all:
-        print("  (--include-all: showing all instruments regardless of 'traded' flag)")
-        print(f"  Calibrated weights used for {len(instrument_weights)} instruments; "
-              f"config default weight for the rest.\n")
+def _split2(pnl: pd.Series, is_end: pd.Timestamp):
+    is_p   = pnl[pnl.index < is_end]
+    test_p = pnl[pnl.index >= is_end]
+    return is_p, test_p
 
-    # ── TABLE 1: Per-instrument IS | Val | Test SR ───────────────────────────
-    print("\n" + "=" * 78)
-    print(f"  TABLE 1 — Per-instrument SR  (IS –{is_end.year} | Val {is_end.year}–{val_end.year} | Test {val_end.year}–)")
-    print("=" * 78)
-    hdr = (f"  {'Instrument':<12} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
-           f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
-    print(hdr)
-    print("  " + "─" * 66)
+
+def _row(is_s, test_s):
+    return {
+        "is":   {"sr": round(_sr(is_s), 3),  "ret": round(_ret(is_s), 4)},
+        "test": {"sr": round(_sr(test_s), 3), "ret": round(_ret(test_s), 4)},
+    }
+
+
+def _build_outputs(c: dict) -> dict:
+    """Split every pnl series into IS/Test and roll up instrument -> asset
+    class -> rule -> family -> portfolio. Pure data, no printing — shared by the
+    CLI report (main()) and the web UI preview (run_oos_backtest()).
+    """
+    is_end = c["is_end"]
+    combined_pnl, rule_pnl, all_rules, cfgs = c["combined_pnl"], c["rule_pnl"], c["all_rules"], c["cfgs"]
 
     inst_is_pnl:   dict[str, pd.Series] = {}
-    inst_val_pnl:  dict[str, pd.Series] = {}
     inst_test_pnl: dict[str, pd.Series] = {}
-
-    for grp_name, grp_codes in GROUPS.items():
-        print(f"  {grp_name}")
+    instruments_out = {}
+    for grp_codes in GROUPS.values():
         for code in grp_codes:
             if code not in combined_pnl:
                 continue
-            is_p, val_p, test_p = _split3(combined_pnl[code])
-            inst_is_pnl[code]   = is_p
-            inst_val_pnl[code]  = val_p
-            inst_test_pnl[code] = test_p
-            traded_flag = "" if cfgs[code].traded else " [excl]"
-            flag = " *" if _sr(val_p) < -0.30 else ""
-            print(f"  {'  '+code:<12} {_sr(is_p):>7.2f} {_sr(val_p):>8.2f} {_sr(test_p):>8.2f}"
-                  f"  {_ret(is_p):>6.1%} {_ret(val_p):>8.1%} {_ret(test_p):>9.1%}"
-                  f"{flag}{traded_flag}")
+            is_p, test_p = _split2(combined_pnl[code], is_end)
+            inst_is_pnl[code], inst_test_pnl[code] = is_p, test_p
+            row = _row(is_p, test_p)
+            row["test_flagged"] = _sr(test_p) < -0.30
+            row["traded"] = cfgs[code].traded
+            instruments_out[code] = row
 
     port_is   = pd.DataFrame(inst_is_pnl).fillna(0).sum(axis=1)
-    port_val  = pd.DataFrame(inst_val_pnl).fillna(0).sum(axis=1)
     port_test = pd.DataFrame(inst_test_pnl).fillna(0).sum(axis=1)
-    print("  " + "─" * 66)
-    print(f"  {'  PORTFOLIO':<12} {_sr(port_is):>7.2f} {_sr(port_val):>8.2f} {_sr(port_test):>8.2f}"
-          f"  {_ret(port_is):>6.1%} {_ret(port_val):>8.1%} {_ret(port_test):>9.1%}")
-    print(f"  {'  Max DD':<12} {'':>7} {'':>8} {'':>8}"
-          f"  {_mdd(port_is):>6.1%} {_mdd(port_val):>8.1%} {_mdd(port_test):>9.1%}")
 
-    # ── TABLE 2: Per-asset-class IS | Val | Test SR ──────────────────────────
-    print("\n" + "=" * 78)
-    print(f"  TABLE 2 — Asset class SR  (IS –{is_end.year} | Val {is_end.year}–{val_end.year} | Test {val_end.year}–)")
-    print("=" * 78)
-    hdr2 = (f"  {'Asset class':<14} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
-            f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
-    print(hdr2)
-    print("  " + "─" * 66)
-
+    asset_classes_out = {}
     for grp_name, grp_codes in GROUPS.items():
-        grp_is_dict   = {c: inst_is_pnl[c]   for c in grp_codes if c in inst_is_pnl}
-        grp_val_dict  = {c: inst_val_pnl[c]  for c in grp_codes if c in inst_val_pnl}
-        grp_test_dict = {c: inst_test_pnl[c] for c in grp_codes if c in inst_test_pnl}
-        if not grp_is_dict:
+        grp_is   = pd.DataFrame({c_: inst_is_pnl[c_]   for c_ in grp_codes if c_ in inst_is_pnl}).fillna(0).sum(axis=1)
+        grp_test = pd.DataFrame({c_: inst_test_pnl[c_] for c_ in grp_codes if c_ in inst_test_pnl}).fillna(0).sum(axis=1)
+        if grp_is.empty:
             continue
-        grp_is   = pd.DataFrame(grp_is_dict).fillna(0).sum(axis=1)
-        grp_val  = pd.DataFrame(grp_val_dict).fillna(0).sum(axis=1)
-        grp_test = pd.DataFrame(grp_test_dict).fillna(0).sum(axis=1)
-        print(f"  {grp_name:<14} {_sr(grp_is):>7.2f} {_sr(grp_val):>8.2f} {_sr(grp_test):>8.2f}"
-              f"  {_ret(grp_is):>6.1%} {_ret(grp_val):>8.1%} {_ret(grp_test):>9.1%}")
+        asset_classes_out[grp_name] = _row(grp_is, grp_test)
 
-    print("  " + "─" * 66)
-    print(f"  {'PORTFOLIO':<14} {_sr(port_is):>7.2f} {_sr(port_val):>8.2f} {_sr(port_test):>8.2f}"
-          f"  {_ret(port_is):>6.1%} {_ret(port_val):>8.1%} {_ret(port_test):>9.1%}")
-
-    # ── TABLE 3: Per-rule IS | Val | Test SR ─────────────────────────────────
-    print("\n" + "=" * 78)
-    print("  TABLE 3 — Rule SR  (isolated, full portfolio, IS | Val | Test)")
-    print("=" * 78)
-    hdr3 = (f"  {'Rule':<16} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
-            f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
-    print(hdr3)
-    print("  " + "─" * 66)
-
+    rules_out = {}
     for rule in all_rules:
         r_pnl = rule_pnl.get(rule, {})
         if not r_pnl:
             continue
-        r_is_dict   = {c: _split3(s)[0] for c, s in r_pnl.items()}
-        r_val_dict  = {c: _split3(s)[1] for c, s in r_pnl.items()}
-        r_test_dict = {c: _split3(s)[2] for c, s in r_pnl.items()}
-        r_is   = pd.DataFrame(r_is_dict).fillna(0).sum(axis=1)
-        r_val  = pd.DataFrame(r_val_dict).fillna(0).sum(axis=1)
-        r_test = pd.DataFrame(r_test_dict).fillna(0).sum(axis=1)
-        print(f"  {rule:<16} {_sr(r_is):>7.2f} {_sr(r_val):>8.2f} {_sr(r_test):>8.2f}"
-              f"  {_ret(r_is):>6.1%} {_ret(r_val):>8.1%} {_ret(r_test):>9.1%}")
+        r_is   = pd.DataFrame({c_: _split2(s, is_end)[0] for c_, s in r_pnl.items()}).fillna(0).sum(axis=1)
+        r_test = pd.DataFrame({c_: _split2(s, is_end)[1] for c_, s in r_pnl.items()}).fillna(0).sum(axis=1)
+        rules_out[rule] = _row(r_is, r_test)
 
-    print("  " + "─" * 66)
-    print(f"  {'COMBINED':<16} {_sr(port_is):>7.2f} {_sr(port_val):>8.2f} {_sr(port_test):>8.2f}"
-          f"  {_ret(port_is):>6.1%} {_ret(port_val):>8.1%} {_ret(port_test):>9.1%}")
-
-    # ── TABLE 4: Per-rule-family IS | Val | Test SR ───────────────────────────
     family_map: dict[str, list[str]] = {}
     for rule in all_rules:
         if rule.startswith("EWMAC"):
@@ -345,110 +309,157 @@ def main(state_dir=None, include_all: bool = False, vol_target: float | None = N
         else:
             family_map.setdefault("Other", []).append(rule)
 
-    print("\n" + "=" * 78)
-    print("  TABLE 4 — Rule family SR  (equal-weight within family, IS | Val | Test)")
-    print("=" * 78)
-    hdr4 = (f"  {'Family':<16} {'Rules':>5} {'IS SR':>7} {'Val SR':>8} {'Test SR':>8}"
-            f"  {'IS Ret':>7} {'Val Ret':>8} {'Test Ret':>9}")
-    print(hdr4)
-    print("  " + "─" * 71)
-
-    for fam_name, fam_rules in family_map.items():
-        fam_is_parts, fam_val_parts, fam_test_parts = [], [], []
-        for rule in fam_rules:
-            r_pnl = rule_pnl.get(rule, {})
-            if not r_pnl:
-                continue
-            r_is_dict   = {c: _split3(s)[0] for c, s in r_pnl.items()}
-            r_val_dict  = {c: _split3(s)[1] for c, s in r_pnl.items()}
-            r_test_dict = {c: _split3(s)[2] for c, s in r_pnl.items()}
-            fam_is_parts.append(pd.DataFrame(r_is_dict).fillna(0).sum(axis=1))
-            fam_val_parts.append(pd.DataFrame(r_val_dict).fillna(0).sum(axis=1))
-            fam_test_parts.append(pd.DataFrame(r_test_dict).fillna(0).sum(axis=1))
-        if not fam_is_parts:
-            continue
-        fam_is   = pd.concat(fam_is_parts,   axis=1).fillna(0).mean(axis=1)
-        fam_val  = pd.concat(fam_val_parts,  axis=1).fillna(0).mean(axis=1)
-        fam_test = pd.concat(fam_test_parts, axis=1).fillna(0).mean(axis=1)
-        print(f"  {fam_name:<16} {len(fam_rules):>5} {_sr(fam_is):>7.2f} {_sr(fam_val):>8.2f} {_sr(fam_test):>8.2f}"
-              f"  {_ret(fam_is):>6.1%} {_ret(fam_val):>8.1%} {_ret(fam_test):>9.1%}")
-
-    print("  " + "─" * 71)
-    print(f"  {'COMBINED':<16} {'':>5} {_sr(port_is):>7.2f} {_sr(port_val):>8.2f} {_sr(port_test):>8.2f}"
-          f"  {_ret(port_is):>6.1%} {_ret(port_val):>8.1%} {_ret(port_test):>9.1%}")
-    print()
-    confirmed_str = f"  (confirmed vol target: {vol_target_display:.0%})" if vol_target_display else ""
-    print(f"  Metrics computed at vol placeholder: {vol_target:.0%}{confirmed_str}   Capital: ${capital:,.0f}")
-    print("  Note: rule/family SR uses isolated single-rule positions (no FDM, no rounding, no inertia).")
-    print("  Family SR = equal-weight mean across member rules.")
-    print("  Combined SR uses full calibrated parameters (FDMs, IDM, instrument weights, rounding, inertia).")
-    print("  (* = Val SR < -0.30   [excl] = excluded in active config)")
-
-    sys.stdout = tee._orig
-    _md_content = tee.getvalue()
-
-    # ── Build structured results and save step6.yaml ─────────────────────────
-    def _row(is_s, val_s, test_s):
-        return {
-            "is":   {"sr": round(_sr(is_s), 3),  "ret": round(_ret(is_s), 4)},
-            "val":  {"sr": round(_sr(val_s), 3),  "ret": round(_ret(val_s), 4)},
-            "test": {"sr": round(_sr(test_s), 3), "ret": round(_ret(test_s), 4)},
-        }
-
-    instruments_out = {}
-    for grp_codes in GROUPS.values():
-        for code in grp_codes:
-            if code not in inst_is_pnl:
-                continue
-            row = _row(inst_is_pnl[code], inst_val_pnl[code], inst_test_pnl[code])
-            row["val_flagged"] = _sr(inst_val_pnl[code]) < -0.30
-            instruments_out[code] = row
-
-    asset_classes_out = {}
-    for grp_name, grp_codes in GROUPS.items():
-        grp_is   = pd.DataFrame({c: inst_is_pnl[c]   for c in grp_codes if c in inst_is_pnl}).fillna(0).sum(axis=1)
-        grp_val  = pd.DataFrame({c: inst_val_pnl[c]  for c in grp_codes if c in inst_val_pnl}).fillna(0).sum(axis=1)
-        grp_test = pd.DataFrame({c: inst_test_pnl[c] for c in grp_codes if c in inst_test_pnl}).fillna(0).sum(axis=1)
-        if grp_is.empty:
-            continue
-        asset_classes_out[grp_name] = _row(grp_is, grp_val, grp_test)
-
-    rules_out = {}
-    for rule in all_rules:
-        r_pnl = rule_pnl.get(rule, {})
-        if not r_pnl:
-            continue
-        r_is   = pd.DataFrame({c: _split3(s)[0] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
-        r_val  = pd.DataFrame({c: _split3(s)[1] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
-        r_test = pd.DataFrame({c: _split3(s)[2] for c, s in r_pnl.items()}).fillna(0).sum(axis=1)
-        rules_out[rule] = _row(r_is, r_val, r_test)
-
     families_out = {}
     for fam_name, fam_rules in family_map.items():
-        fam_is_parts, fam_val_parts, fam_test_parts = [], [], []
+        fam_is_parts, fam_test_parts = [], []
         for rule in fam_rules:
             r_pnl = rule_pnl.get(rule, {})
             if not r_pnl:
                 continue
-            fam_is_parts.append(pd.DataFrame({c: _split3(s)[0] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
-            fam_val_parts.append(pd.DataFrame({c: _split3(s)[1] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
-            fam_test_parts.append(pd.DataFrame({c: _split3(s)[2] for c, s in r_pnl.items()}).fillna(0).sum(axis=1))
+            fam_is_parts.append(pd.DataFrame({c_: _split2(s, is_end)[0] for c_, s in r_pnl.items()}).fillna(0).sum(axis=1))
+            fam_test_parts.append(pd.DataFrame({c_: _split2(s, is_end)[1] for c_, s in r_pnl.items()}).fillna(0).sum(axis=1))
         if not fam_is_parts:
             continue
         row = _row(
             pd.concat(fam_is_parts,   axis=1).fillna(0).mean(axis=1),
-            pd.concat(fam_val_parts,  axis=1).fillna(0).mean(axis=1),
             pd.concat(fam_test_parts, axis=1).fillna(0).mean(axis=1),
         )
         row["n_rules"] = len(fam_rules)
         families_out[fam_name] = row
 
-    val_weak = [c for c, v in instruments_out.items() if v["val_flagged"]]
+    test_weak = [code for code, v in instruments_out.items() if v["test_flagged"]]
 
-    portfolio_row = _row(port_is, port_val, port_test)
+    portfolio_row = _row(port_is, port_test)
     portfolio_row["is"]["max_dd"]   = round(_mdd(port_is),   4)
-    portfolio_row["val"]["max_dd"]  = round(_mdd(port_val),  4)
     portfolio_row["test"]["max_dd"] = round(_mdd(port_test), 4)
+
+    summary = {
+        "is_sr":          portfolio_row["is"]["sr"],
+        "test_sr":        portfolio_row["test"]["sr"],
+        "is_ret":         portfolio_row["is"]["ret"],
+        "test_ret":       portfolio_row["test"]["ret"],
+        "is_max_dd":      portfolio_row["is"]["max_dd"],
+        "test_max_dd":    portfolio_row["test"]["max_dd"],
+        "test_weak_flags": test_weak,
+    }
+
+    return {
+        "instruments_out": instruments_out,
+        "asset_classes_out": asset_classes_out,
+        "rules_out": rules_out,
+        "families_out": families_out,
+        "portfolio_row": portfolio_row,
+        "test_weak": test_weak,
+        "summary": summary,
+        "port_is": port_is,
+        "port_test": port_test,
+    }
+
+
+def _print_tables(c: dict, built: dict) -> str:
+    """Print Table 1-4 + footer from already-built structured output, tee'd to a
+    buffer that becomes step6.md's content. Sourced from `built` (not recomputed)
+    so the log and the structured data can never diverge.
+    """
+    is_end = c["is_end"]
+    pr = built["portfolio_row"]
+
+    tee = _Tee(sys.stdout)
+    sys.stdout = tee
+
+    if c["include_all"]:
+        print("  (--include-all: showing all instruments regardless of 'traded' flag)")
+        print(f"  Calibrated weights used for {len(c['combined_pnl'])} instruments; "
+              f"config default weight for the rest.\n")
+
+    print("\n" + "=" * 78)
+    print(f"  TABLE 1 — Per-instrument SR  (IS –{is_end.year} | Test {is_end.year}–)")
+    print("=" * 78)
+    hdr = (f"  {'Instrument':<12} {'IS SR':>7} {'Test SR':>8}"
+           f"  {'IS Ret':>7} {'Test Ret':>9}")
+    print(hdr)
+    print("  " + "─" * 54)
+    for grp_name, grp_codes in GROUPS.items():
+        rows_in_group = [code for code in grp_codes if code in built["instruments_out"]]
+        if not rows_in_group:
+            continue
+        print(f"  {grp_name}")
+        for code in rows_in_group:
+            row = built["instruments_out"][code]
+            traded_flag = "" if row["traded"] else " [excl]"
+            flag = " *" if row["test_flagged"] else ""
+            print(f"  {'  '+code:<12} {row['is']['sr']:>7.2f} {row['test']['sr']:>8.2f}"
+                  f"  {row['is']['ret']:>6.1%} {row['test']['ret']:>9.1%}"
+                  f"{flag}{traded_flag}")
+
+    print("  " + "─" * 54)
+    print(f"  {'  PORTFOLIO':<12} {pr['is']['sr']:>7.2f} {pr['test']['sr']:>8.2f}"
+          f"  {pr['is']['ret']:>6.1%} {pr['test']['ret']:>9.1%}")
+    print(f"  {'  Max DD':<12} {'':>7} {'':>8}"
+          f"  {pr['is']['max_dd']:>6.1%} {pr['test']['max_dd']:>9.1%}")
+
+    print("\n" + "=" * 78)
+    print(f"  TABLE 2 — Asset class SR  (IS –{is_end.year} | Test {is_end.year}–)")
+    print("=" * 78)
+    hdr2 = (f"  {'Asset class':<14} {'IS SR':>7} {'Test SR':>8}"
+            f"  {'IS Ret':>7} {'Test Ret':>9}")
+    print(hdr2)
+    print("  " + "─" * 54)
+    for grp_name, row in built["asset_classes_out"].items():
+        print(f"  {grp_name:<14} {row['is']['sr']:>7.2f} {row['test']['sr']:>8.2f}"
+              f"  {row['is']['ret']:>6.1%} {row['test']['ret']:>9.1%}")
+    print("  " + "─" * 54)
+    print(f"  {'PORTFOLIO':<14} {pr['is']['sr']:>7.2f} {pr['test']['sr']:>8.2f}"
+          f"  {pr['is']['ret']:>6.1%} {pr['test']['ret']:>9.1%}")
+
+    print("\n" + "=" * 78)
+    print("  TABLE 3 — Rule SR  (isolated, full portfolio, IS | Test)")
+    print("=" * 78)
+    hdr3 = (f"  {'Rule':<16} {'IS SR':>7} {'Test SR':>8}"
+            f"  {'IS Ret':>7} {'Test Ret':>9}")
+    print(hdr3)
+    print("  " + "─" * 54)
+    for rule, row in built["rules_out"].items():
+        print(f"  {rule:<16} {row['is']['sr']:>7.2f} {row['test']['sr']:>8.2f}"
+              f"  {row['is']['ret']:>6.1%} {row['test']['ret']:>9.1%}")
+    print("  " + "─" * 54)
+    print(f"  {'COMBINED':<16} {pr['is']['sr']:>7.2f} {pr['test']['sr']:>8.2f}"
+          f"  {pr['is']['ret']:>6.1%} {pr['test']['ret']:>9.1%}")
+
+    print("\n" + "=" * 78)
+    print("  TABLE 4 — Rule family SR  (equal-weight within family, IS | Test)")
+    print("=" * 78)
+    hdr4 = (f"  {'Family':<16} {'Rules':>5} {'IS SR':>7} {'Test SR':>8}"
+            f"  {'IS Ret':>7} {'Test Ret':>9}")
+    print(hdr4)
+    print("  " + "─" * 59)
+    for fam_name, row in built["families_out"].items():
+        print(f"  {fam_name:<16} {row['n_rules']:>5} {row['is']['sr']:>7.2f} {row['test']['sr']:>8.2f}"
+              f"  {row['is']['ret']:>6.1%} {row['test']['ret']:>9.1%}")
+    print("  " + "─" * 59)
+    print(f"  {'COMBINED':<16} {'':>5} {pr['is']['sr']:>7.2f} {pr['test']['sr']:>8.2f}"
+          f"  {pr['is']['ret']:>6.1%} {pr['test']['ret']:>9.1%}")
+    print()
+
+    vol_target, vol_target_display = c["vol_target"], c["vol_target_display"]
+    if vol_target_display is None or abs(vol_target_display - vol_target) < 1e-9:
+        note = ""
+    else:
+        note = f"  (Step 5 confirmed: {vol_target_display:.0%})"
+    print(f"  Metrics computed at vol target: {vol_target:.0%}{note}   Capital: ${c['capital']:,.0f}")
+    print("  Note: rule/family SR uses isolated single-rule positions (no FDM, no rounding, no inertia).")
+    print("  Family SR = equal-weight mean across member rules.")
+    print("  Combined SR uses full calibrated parameters (FDMs, IDM, instrument weights, rounding, inertia).")
+    print("  (* = Test SR < -0.30   [excl] = excluded in active config)")
+
+    sys.stdout = tee._orig
+    return tee.getvalue()
+
+
+def main(state_dir=None, include_all: bool = False, vol_target: float | None = None, report_dir=None) -> dict:
+    computed = _compute(vol_target, state_dir=state_dir, include_all=include_all)
+    built = _build_outputs(computed)
+    md_content = _print_tables(computed, built)
 
     if report_dir is None:
         report_dir = Path(state_dir).parent / "results" if state_dir else None
@@ -458,23 +469,37 @@ def main(state_dir=None, include_all: bool = False, vol_target: float | None = N
         md_path.parent.mkdir(parents=True, exist_ok=True)
         with open(md_path, "w") as f:
             f.write("```\n")
-            f.write(_md_content)
+            f.write(md_content)
             f.write("```\n")
         print(f"\n  Results saved → {md_path}")
 
-    summary = {
-        "is_sr":         portfolio_row["is"]["sr"],
-        "val_sr":        portfolio_row["val"]["sr"],
-        "test_sr":       portfolio_row["test"]["sr"],
-        "is_ret":        portfolio_row["is"]["ret"],
-        "val_ret":       portfolio_row["val"]["ret"],
-        "test_ret":      portfolio_row["test"]["ret"],
-        "is_max_dd":     portfolio_row["is"]["max_dd"],
-        "val_max_dd":    portfolio_row["val"]["max_dd"],
-        "test_max_dd":   portfolio_row["test"]["max_dd"],
-        "val_weak_flags": val_weak,
+    return built["summary"]
+
+
+def run_oos_backtest(vol_target: float, state_dir=None, include_all: bool = False) -> dict:
+    """Re-run the OOS validation at `vol_target` and return structured tables plus
+    a combined IS->Test equity curve — for the web UI to render tables/big-font
+    metrics/equity curve directly instead of parsing the printed log. Does not write
+    step6.md (main() owns that); safe to call repeatedly and cheaply (a few seconds).
+    """
+    computed = _compute(vol_target, state_dir=state_dir, include_all=include_all)
+    built = _build_outputs(computed)
+
+    full_pnl = pd.concat([built["port_is"], built["port_test"]]).sort_index()
+    equity = equity_curve(full_pnl, computed["capital"])
+
+    return {
+        "vol_target": computed["vol_target"],
+        "capital": computed["capital"],
+        "is_end": computed["is_end"],
+        "instruments": built["instruments_out"],
+        "asset_classes": built["asset_classes_out"],
+        "rules": built["rules_out"],
+        "families": built["families_out"],
+        "portfolio": built["portfolio_row"],
+        "test_weak": built["test_weak"],
+        "equity_curve": equity,
     }
-    return summary
 
 
 if __name__ == "__main__":
@@ -484,7 +509,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-all", action="store_true",
                         help="Include all instruments regardless of 'traded: false'")
     parser.add_argument("--vol-target", type=float, default=None,
-                        metavar="FLOAT", help="Override vol target (default: read from step5.yaml)")
+                        metavar="FLOAT", help="Position-sizing vol target (default: 0.20 first-look placeholder)")
     args = parser.parse_args()
 
     root = Path(__file__).parents[1]

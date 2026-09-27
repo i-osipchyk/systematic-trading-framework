@@ -172,7 +172,7 @@ def _print_and_report_corr(instruments: list[str], split_date, report_dir) -> No
     print(f"  Saved → {report_path}")
 
 
-def main(state_dir=None, report_dir=None) -> None:
+def main(state_dir=None, report_dir=None, auto_confirm: bool = False) -> None:
     if report_dir is None:
         report_dir = state_dir
     group_to_instruments = _get_groups()
@@ -197,42 +197,60 @@ def main(state_dir=None, report_dir=None) -> None:
         print(f"  {group} ({len(instruments)}): {', '.join(instruments)}")
     print()
     print("  Constraint: group weights must sum to 1.0")
-    print()
-    print("  Press Enter when done (Ctrl+C to abort)...")
 
     group_weights: dict[str, float] = {}
-    while True:
-        try:
-            input()
-        except KeyboardInterrupt:
-            print("\n  Aborted.")
-            sys.exit(1)
-        except EOFError:
-            raise
-
-        if not st.exists(FILENAME, state_dir=state_dir):
-            print("  ERROR: step4.yaml not found.")
-            continue
-
+    if auto_confirm:
+        print()
+        print("  auto_confirm=True — validating the group_weights currently on disk.")
         data = yaml.safe_load(step4_path.read_text())
         errors = _validate_group_weights(group_to_instruments, data)
-
         if errors:
-            print()
-            print("  VALIDATION ERRORS:")
-            for e in errors:
-                print(e)
-            print()
-            print("  Fix the errors above and press Enter again...")
-        else:
-            group_weights = {
-                g: float(data["group_weights"][g]) for g in group_to_instruments
-            }
-            break
+            raise ValueError("Invalid group_weights in " + str(step4_path) + ":\n" + "\n".join(errors))
+        group_weights = {
+            g: float(data["group_weights"][g]) for g in group_to_instruments
+        }
+    else:
+        print()
+        print("  Press Enter when done (Ctrl+C to abort)...")
+        while True:
+            try:
+                input()
+            except KeyboardInterrupt:
+                print("\n  Aborted.")
+                sys.exit(1)
+            except EOFError:
+                raise
+
+            if not st.exists(FILENAME, state_dir=state_dir):
+                print("  ERROR: step4.yaml not found.")
+                continue
+
+            data = yaml.safe_load(step4_path.read_text())
+            errors = _validate_group_weights(group_to_instruments, data)
+
+            if errors:
+                print()
+                print("  VALIDATION ERRORS:")
+                for e in errors:
+                    print(e)
+                print()
+                print("  Fix the errors above and press Enter again...")
+            else:
+                group_weights = {
+                    g: float(data["group_weights"][g]) for g in group_to_instruments
+                }
+                break
 
     # ── Pass 2: individual instrument weights ──────────────────────────────────
-    _write_individual_template(group_to_instruments, group_weights, state_dir=state_dir)
-    print(f"\n  Derived instrument_weights section → {step4_path}")
+    # Mirrors the group_weights guard above: once a user (or the UI) has set
+    # instrument_weights, a rerun of this step must not silently overwrite an
+    # intentional uneven split back to the equal-within-group template. Delete
+    # the section on disk (webui: "reset to equal split") to regenerate it.
+    if not st.has_section(FILENAME, "instrument_weights", state_dir=state_dir):
+        _write_individual_template(group_to_instruments, group_weights, state_dir=state_dir)
+        print(f"\n  Derived instrument_weights section → {step4_path}")
+    else:
+        print(f"\n  instrument_weights section already exists in {step4_path} — skipping template.")
 
     print()
     print("  ACTION REQUIRED — Step 2 of 2: Individual instrument weights")
@@ -241,34 +259,45 @@ def main(state_dir=None, report_dir=None) -> None:
     print(f"  {step4_path}")
     print()
     print("  Constraint: weights must sum to 1.0 (tolerance ±0.005)")
-    print()
-    print("  Press Enter when done (Ctrl+C to abort)...")
 
     final_weights: dict[str, float] = {}
-    while True:
-        try:
-            input()
-        except KeyboardInterrupt:
-            print("\n  Aborted.")
-            sys.exit(1)
-        except EOFError:
-            raise
-
+    if auto_confirm:
+        print()
+        print("  auto_confirm=True — validating the instrument_weights currently on disk.")
         data = yaml.safe_load(step4_path.read_text())
         errors = _validate_individual_weights(all_instruments, data)
-
         if errors:
-            print()
-            print("  VALIDATION ERRORS:")
-            for e in errors:
-                print(e)
-            print()
-            print("  Fix the errors above and press Enter again...")
-        else:
-            final_weights = {
-                c: float(data["instrument_weights"][c]) for c in all_instruments
-            }
-            break
+            raise ValueError("Invalid instrument_weights in " + str(step4_path) + ":\n" + "\n".join(errors))
+        final_weights = {
+            c: float(data["instrument_weights"][c]) for c in all_instruments
+        }
+    else:
+        print()
+        print("  Press Enter when done (Ctrl+C to abort)...")
+        while True:
+            try:
+                input()
+            except KeyboardInterrupt:
+                print("\n  Aborted.")
+                sys.exit(1)
+            except EOFError:
+                raise
+
+            data = yaml.safe_load(step4_path.read_text())
+            errors = _validate_individual_weights(all_instruments, data)
+
+            if errors:
+                print()
+                print("  VALIDATION ERRORS:")
+                for e in errors:
+                    print(e)
+                print()
+                print("  Fix the errors above and press Enter again...")
+            else:
+                final_weights = {
+                    c: float(data["instrument_weights"][c]) for c in all_instruments
+                }
+                break
 
     # ── Print confirmation ─────────────────────────────────────────────────────
     print()
@@ -284,6 +313,7 @@ def main(state_dir=None, report_dir=None) -> None:
     # ── Automatically compute IDM from confirmed weights ───────────────────────
     from calibrate.step4b_idm import main as _run_idm
     _run_idm(state_dir=state_dir, report_dir=report_dir)
+    idm = float(st.load_section(FILENAME, "idm", state_dir=state_dir))
 
     return {
         "group_weights": {
@@ -291,6 +321,7 @@ def main(state_dir=None, report_dir=None) -> None:
             for grp, codes in group_to_instruments.items()
         },
         "instrument_weights": {c: round(w, 6) for c, w in final_weights.items()},
+        "idm": round(idm, 4),
     }
 
 

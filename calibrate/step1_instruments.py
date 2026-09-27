@@ -25,7 +25,7 @@ from src.calibration import state as st
 FILENAME = "step1.yaml"
 
 
-def main(state_dir=None, report_dir=None) -> dict:
+def main(state_dir=None, report_dir=None, auto_confirm: bool = False) -> dict:
     if st.exists(FILENAME, state_dir=state_dir):
         print(f"  Step 1 already confirmed ({st.path(FILENAME, state_dir=state_dir)})")
         return {}
@@ -52,20 +52,23 @@ def main(state_dir=None, report_dir=None) -> dict:
         print(f"\n  FX helpers (not traded): {', '.join(helpers)}")
     print(f"\n  {SEP}")
     print(f"  Edit {st.path(FILENAME, state_dir=state_dir).parent / 'instruments.yaml'}")
-    print(f"  then press Enter to confirm the universe is finalised...")
 
-    try:
-        input()
-    except (KeyboardInterrupt, EOFError):
-        print("\n  Aborted.")
-        sys.exit(1)
+    if auto_confirm:
+        print(f"  auto_confirm=True — finalising the universe above without a prompt.")
+    else:
+        print(f"  then press Enter to confirm the universe is finalised...")
+        try:
+            input()
+        except (KeyboardInterrupt, EOFError):
+            print("\n  Aborted.")
+            sys.exit(1)
 
     st.save(FILENAME, {"confirmed": datetime.now().isoformat(timespec="seconds"),
                        "n_traded": len(traded),
                        "traded": traded},
             state_dir=state_dir)
     print(f"  Confirmed → {st.path(FILENAME, state_dir=state_dir)}")
-    return {"n_traded": len(traded), "instruments": traded}
+    return {"n_traded": len(traded), "instruments": traded, "asset_groups": asset_groups}
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ STEPS: list[Step] = [
     Step("3",   "calibrate.step3_rules",               "step3.yaml",  "fdm",         True,  "Step 3   — Rule correlations, trading speed, forecast weights [USER EDITS]"),
     Step("4",   "calibrate.step4a_instrument_weights", "step4.yaml",  "idm",         True,  "Step 4   — Instrument weights and IDM [USER INPUT]"),
     Step("5",   "calibrate.step5_calibrate",           "step5.yaml",  "vol_target",  True,  "Step 5   — IS backtest and volatility target [USER CONFIRMS]"),
-    Step("oos", "calibrate.oos_validation",            None,          None,          False, "OOS      — IS vs Val vs Test SR breakdown → step6.md"),
+    Step("oos", "calibrate.oos_validation",            None,          None,          False, "OOS      — IS vs Test SR breakdown → step6.md"),
 ]
 
 
@@ -68,7 +68,7 @@ def _import_step(module_name: str):
     return mod
 
 
-def _step_done(step: Step, config_dir: Path) -> bool:
+def step_done(step: Step, config_dir: Path) -> bool:
     if step.output_file is None:
         return False
     if not st.exists(step.output_file, state_dir=config_dir):
@@ -79,14 +79,14 @@ def _step_done(step: Step, config_dir: Path) -> bool:
 
 
 def _all_steps_complete(steps: list[Step], config_dir: Path) -> bool:
-    return all(_step_done(s, config_dir) for s in steps)
+    return all(step_done(s, config_dir) for s in steps)
 
 
 def _print_status_header(steps: list[Step], only_step: str | None, config_dir: Path) -> None:
     print(f"\n  Calibration Pipeline")
     print(f"  {STEP_LINE}")
     for step in steps:
-        status = "DONE   " if _step_done(step, config_dir) else "PENDING"
+        status = "DONE   " if step_done(step, config_dir) else "PENDING"
         user_tag = " [user input]" if step.requires_user else ""
         skip_tag = " [skip]" if only_step is not None and step.number != only_step else ""
         print(f"  {step.description:52s} {status}{user_tag}{skip_tag}")
@@ -96,7 +96,7 @@ def _print_status_header(steps: list[Step], only_step: str | None, config_dir: P
 def _should_run(step: Step, only_step: str | None, config_dir: Path) -> bool:
     if only_step is not None:
         return step.number == only_step
-    return not _step_done(step, config_dir)
+    return not step_done(step, config_dir)
 
 
 def _log_step_values(step: Step, values: dict, results_dir: Path) -> None:
@@ -112,10 +112,10 @@ def _log_step_values(step: Step, values: dict, results_dir: Path) -> None:
             print(f"    {key}: {val:.4f}  ({val:.1%})" if val < 1 else f"    {key}: {val:.4f}")
         else:
             print(f"    {key}: {val}")
-    _update_run_log(results_dir, step, values)
+    update_run_log(results_dir, step, values)
 
 
-def _update_run_log(results_dir: Path, step: Step, values: dict) -> None:
+def update_run_log(results_dir: Path, step: Step, values: dict) -> None:
     log_path = results_dir / "run_log.yaml"
     if log_path.exists():
         with open(log_path) as f:
@@ -129,7 +129,7 @@ def _update_run_log(results_dir: Path, step: Step, values: dict) -> None:
         yaml.dump(log, f, default_flow_style=False, sort_keys=False)
 
 
-def _init_run_log(results_dir: Path) -> None:
+def init_run_log(results_dir: Path) -> None:
     cfgs = load_instrument_configs()
     instruments = traded_instruments(cfgs)
     rules_cfg = load_rules_config()
@@ -199,12 +199,12 @@ def main() -> None:
         print(f"  Use --force to clear state and rerun from scratch.")
         sys.exit(0)
 
-    _init_run_log(results_dir)
+    init_run_log(results_dir)
     _print_status_header(STEPS, only_step, config_dir)
 
     for step in STEPS:
         if not _should_run(step, only_step, config_dir):
-            if _step_done(step, config_dir):
+            if step_done(step, config_dir):
                 print(f"  {step.description} → skipped (done)")
             continue
 

@@ -468,7 +468,7 @@ def _write_report(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main(state_dir=None, split_date=None, report_dir=None) -> dict:
+def main(state_dir=None, split_date=None, report_dir=None, auto_confirm: bool = False) -> dict:
     if report_dir is None:
         report_dir = state_dir
     cfgs = load_instrument_configs()
@@ -593,13 +593,16 @@ def main(state_dir=None, split_date=None, report_dir=None) -> dict:
 
     print(f"\n  ACTION: review the tables above, then edit forecast_weights in:")
     print(f"    {step3_path}")
-    print(f"  Adjust weights for correlated or expensive rules, then press Enter...")
 
-    try:
-        input()
-    except (KeyboardInterrupt, EOFError):
-        print("\n  Aborted.")
-        sys.exit(1)
+    if auto_confirm:
+        print(f"  auto_confirm=True — proceeding with the forecast_weights above without a prompt.")
+    else:
+        print(f"  Adjust weights for correlated or expensive rules, then press Enter...")
+        try:
+            input()
+        except (KeyboardInterrupt, EOFError):
+            print("\n  Aborted.")
+            sys.exit(1)
 
     # ── 3e: FDM (automatic, runs after user confirms weights) ──────────────────
     print("  [3e] Computing FDM from confirmed weights...")
@@ -641,6 +644,8 @@ def main(state_dir=None, split_date=None, report_dir=None) -> dict:
     return {
         "state": str(step3_path),
         "report": str(report_path),
+        "forecast_weights": {k: round(float(v), 4) for k, v in weights.items()},
+        "fdm": {code: round(fdm, 4) for code, fdm in fdms.items()},
     }
 
 

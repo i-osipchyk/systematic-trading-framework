@@ -257,7 +257,7 @@ Brief summary of what AI does:
 1. Portfolio-level: compare OOS SR to the discounted IS SR estimate; flag large gaps
 2. Asset class: identify which classes held up and which did not
 3. Rule family: identify which families contributed OOS vs. dragged
-4. Instrument: flag any with Val SR < −0.30 (candidates for next build's Step 1 review)
+4. Instrument: flag any with Test SR < −0.30 (candidates for next build's Step 1 review)
 
 OOS results inform the next build's Step 1 and Step 2 discussions. They do not change the current
 system — any adjustment requires a new full build.

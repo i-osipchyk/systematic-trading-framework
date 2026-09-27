@@ -71,6 +71,18 @@ def has_section(filename: str, section: str, state_dir=None) -> bool:
     return section in (yaml.safe_load(p.read_text()) or {})
 
 
+def delete_section(filename: str, section: str, state_dir=None) -> None:
+    """Remove one section from a multi-section YAML state file, if present."""
+    p = _resolve_dir(state_dir) / filename
+    if not p.exists():
+        return
+    existing = yaml.safe_load(p.read_text()) or {}
+    if section in existing:
+        del existing[section]
+        with open(p, "w") as f:
+            yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
+
+
 def parse_ewmac_scalars(raw: dict) -> dict[tuple[int, int], float]:
     """Parse {'2_8': 13.35, ...} → {(2, 8): 13.35, ...}"""
     return {tuple(int(x) for x in k.split("_")): float(v) for k, v in raw.items()}

@@ -24,6 +24,19 @@ dependencies = [
     "xlrd>=2.0.2",
 ]
 
+[project.optional-dependencies]
+# Local web UI (Streamlit) for driving the calibration pipeline.
+ui = ["streamlit>=1.36", "plotly>=5.22"]
+
+# Local development / testing.
+dev = ["pytest>=8"]
+
+[project.scripts]
+trading-ui = "src.webui.launch:main"
+
 [tool.uv]
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 no-build-isolation-package = ["statsmodels"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
